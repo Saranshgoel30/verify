@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            padding: 30px 40px;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+        
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ffffff, #e0e7ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        
+        .main-content {
+            padding: 0;
+            position: relative;
+        }
+        
+        .iframe-container {
+            position: relative;
+            width: 100%;
+            height: 80vh;
+            min-height: 600px;
+            overflow: hidden;
+            border-radius: 0 0 24px 24px;
+            background: #f8fafc;
+        }
+        
+        .iframe-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(180deg, rgba(248, 250, 252, 0.9) 0%, transparent 100%);
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        .embedded-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+            transition: all 0.3s ease;
+        }
+        
+        .embedded-frame:hover {
+            transform: scale(1.002);
+        }
+        
+        .loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            z-index: 0;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: #6b7280;
+            font-weight: 500;
+            text-align: center;
+        }
+        
+        .scroll-indicator {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(79, 70, 229, 0.9);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+        
+        .decorative-element {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(45deg, #4f46e5, #7c3aed);
+            border-radius: 50%;
+            opacity: 0.1;
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        .decorative-element:nth-child(1) {
+            top: 10%;
+            right: 5%;
+            animation-delay: 0s;
+        }
+        
+        .decorative-element:nth-child(2) {
+            bottom: 20%;
+            left: 10%;
+            animation-delay: 2s;
+            width: 60px;
+            height: 60px;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .header {
+                padding: 20px 24px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .iframe-container {
+                height: 70vh;
+                min-height: 500px;
+            }
+            
+            .scroll-indicator {
+                bottom: 10px;
+                right: 10px;
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+        }
+        
+        /* Custom scrollbar for the iframe */
+        .embedded-frame::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .embedded-frame::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        
+        .embedded-frame::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border-radius: 4px;
+        }
+        
+        .embedded-frame::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #3730a3, #6b21a8);
+        }
+    </style>
+</head>
+<body>
+    <div class="decorative-element"></div>
+    <div class="decorative-element"></div>
+    
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1>Interactive Dashboard</h1>
+                <p>Seamlessly integrated Google Apps Script interface</p>
+            </div>
+        </header>
+        
+        <main class="main-content">
+            <div class="iframe-container">
+                <div class="iframe-overlay"></div>
+                <div class="loading-indicator" id="loadingIndicator">
+                    <div class="spinner"></div>
+                    <div class="loading-text">Loading your application...</div>
+                </div>
+                <iframe 
+                    class="embedded-frame" 
+                    src="https://script.google.com/macros/s/AKfycbwi0gOPFGmODpiXtnKP_2L1A3JczlDGgKr9t0jMBcb3WXm6tR7y5HW9hODPO4_CvqBNbQ/exec"
+                    title="Google Apps Script Application"
+                    loading="lazy"
+                    onload="hideLoading()"
+                    allowfullscreen>
+                </iframe>
+                <div class="scroll-indicator">
+                    📱 Scroll within frame
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script>
+        function hideLoading() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.opacity = '0';
+                setTimeout(() => {
+                    loadingIndicator.style.display = 'none';
+                }, 300);
+            }
+        }
+        
+        // Add smooth scroll behavior
+        document.documentElement.style.scrollBehavior = 'smooth';
+        
+        // Add some interactive effects
+        const container = document.querySelector('.container');
+        let isMouseOver = false;
+        
+        container.addEventListener('mouseenter', () => {
+            isMouseOver = true;
+            container.style.transform = 'translateY(-2px)';
+            container.style.boxShadow = '0 30px 60px rgba(0, 0, 0, 0.2)';
+        });
+        
+        container.addEventListener('mouseleave', () => {
+            isMouseOver = false;
+            container.style.transform = 'translateY(0)';
+            container.style.boxShadow = '0 25px 50px rgba(0, 0, 0, 0.15)';
+        });
+        
+        // Add parallax effect to decorative elements
+        window.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const elements = document.querySelectorAll('.decorative-element');
+            elements.forEach((element, index) => {
+                const speed = 0.5 + (index * 0.2);
+                element.style.transform = `translateY(${scrolled * speed}px)`;
+            });
+        });
+        
+        // Enhance iframe interaction
+        const iframe = document.querySelector('.embedded-frame');
+        iframe.addEventListener('load', () => {
+            // Add a subtle glow effect when iframe is focused
+            iframe.addEventListener('focus', () => {
+                iframe.style.boxShadow = '0 0 30px rgba(79, 70, 229, 0.3)';
+            });
+            
+            iframe.addEventListener('blur', () => {
+                iframe.style.boxShadow = 'none';
+            });
+        });
+    </script>
+</body>
+</html>
