@@ -493,9 +493,15 @@
                 [0, 1, 2, 3, 4].forEach(function(i) {
                     var cell = document.createElement('td');
                     if (i === 0) { // Format date
-                        cell.textContent = new Date(row[i]).toLocaleDateString();
+                        var dateVal = row[i];
+                        var formattedDate = "N/A";
+                        if (dateVal && !isNaN(new Date(dateVal).getTime())) {
+                            var d = new Date(dateVal);
+                            formattedDate = d.toLocaleDateString() + " " + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        }
+                        cell.textContent = formattedDate;
                     } else {
-                        cell.textContent = row[i];
+                        cell.textContent = row[i] || "N/A";
                     }
                     tr.appendChild(cell);
                 });
