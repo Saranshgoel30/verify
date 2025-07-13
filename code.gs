@@ -37,9 +37,9 @@ function generateAndSendOTP(email) {
 
     var ss = getSpreadsheet_();
     var requestSheet = ss.getSheetByName("Request");
-    var studentsSheet = ss.getSheetByName("Students"); // FIX: Changed from "pocs" to "Students"
+    var pocsSheet = ss.getSheetByName("pocs"); // FIX: Corrected sheet name
     var pendingSheet = ss.getSheetByName("Pending");
-    if (!requestSheet || !studentsSheet || !pendingSheet) { // FIX: Changed from "pocs" to "Students"
+    if (!requestSheet || !pocsSheet || !pendingSheet) { 
       return {
         success: false,
         message: "System error: Required sheet(s) missing. Please contact admin."
@@ -57,15 +57,19 @@ function generateAndSendOTP(email) {
       }
     }
     
-    // Check if email exists in Students database
-    var studentsData = studentsSheet.getDataRange().getValues(); // FIX: Changed from "pocs" to "Students"
+    // Check if email exists in POCs database and get details
+    var pocsData = pocsSheet.getDataRange().getValues(); 
     var emailInDatabase = false;
     var studentName = "";
+    var rollNumber = "";
+    var pocName = "";
     
-    for (var i = 1; i < studentsData.length; i++) { // FIX: Changed from pocsData to studentsData
-      if (studentsData[i][2] === email) { // Assuming student email is in Column C
+    for (var i = 1; i < pocsData.length; i++) { 
+      if (pocsData[i][2] === email) { // Column C: Email
         emailInDatabase = true;
-        studentName = studentsData[i][1]; // Assuming student name is in Column B
+        rollNumber = pocsData[i][0]; // Column A: ID (Roll Number)
+        studentName = pocsData[i][1]; // Column B: Name
+        pocName = pocsData[i][3];     // Column D: POC Name
         break;
       }
     }
@@ -103,7 +107,11 @@ function generateAndSendOTP(email) {
     
     return { 
       success: true,
-      message: "OTP sent successfully"
+      message: "OTP sent successfully",
+      // Return student details to the client
+      studentName: studentName,
+      rollNumber: rollNumber,
+      pocName: pocName
     };
   } catch (e) {
     Logger.log("generateAndSendOTP Error: " + e.toString());

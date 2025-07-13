@@ -452,14 +452,16 @@
 
         function updateStats(data) {
             stats = data.reduce(function(acc, row) {
-                var status = row[5] || "Pending";
+                var status = row[6] || "Pending"; // FIX: Status is in column G (index 6)
                 if (status === "Pending") acc.pending++;
+                // The below are not technically needed if we only show pending, but good for future use
                 else if (status === "Approved") acc.approved++;
                 else if (status === "Rejected") acc.rejected++;
                 return acc;
             }, { pending: 0, approved: 0, rejected: 0 });
 
             document.getElementById('pending-count').textContent = stats.pending;
+            // These will be 0 if we only fetch pending, but we can keep them
             document.getElementById('approved-count').textContent = stats.approved;
             document.getElementById('rejected-count').textContent = stats.rejected;
         }
@@ -492,19 +494,19 @@
                 cellDate.textContent = new Date(requestId).toLocaleDateString();
                 tr.appendChild(cellDate);
 
-                // Name, Email, PoC Name
+                // Name, Email, PoC Name (Indices: 1, 3, 4)
                 [1, 3, 4].forEach(function(i) {
                     var cell = document.createElement('td');
                     cell.textContent = row[i];
                     tr.appendChild(cell);
                 });
                 
-                // Student Message
+                // Student Message (Index 8)
                 var cellStudentMessage = document.createElement('td');
-                cellStudentMessage.textContent = row[7] || '-'; // Assuming student message is at index 7
+                cellStudentMessage.textContent = row[8] || '-'; // FIX: Student message is at index 8
                 tr.appendChild(cellStudentMessage);
 
-                // Status
+                // Status (Index 6)
                 var cellStatus = document.createElement('td');
                 var statusSelect = document.createElement('select');
                 statusSelect.className = 'status-select';
@@ -513,7 +515,7 @@
                     var option = document.createElement('option');
                     option.value = status;
                     option.textContent = status;
-                    if (row[5] === status) option.selected = true;
+                    if (row[6] === status) option.selected = true; // FIX: Status is at index 6
                     statusSelect.appendChild(option);
                 });
                 statusSelect.addEventListener('change', function(e) {
@@ -522,9 +524,9 @@
                 cellStatus.appendChild(statusSelect);
                 tr.appendChild(cellStatus);
 
-                // PoC Message
+                // PoC Message (Index 7)
                 var cellPocMessage = document.createElement('td');
-                var pocMessageText = row[6] || '-';
+                var pocMessageText = row[7] || '-'; // FIX: PoC message is at index 7
                 cellPocMessage.id = 'poc-message-' + requestId;
                 cellPocMessage.textContent = pocMessageText;
                 tr.appendChild(cellPocMessage);
@@ -535,7 +537,7 @@
                 messageButton.textContent = 'Message';
                 messageButton.className = 'btn-update';
                 messageButton.onclick = function() {
-                    openMessageModal(requestId, row[6] || '');
+                    openMessageModal(requestId, row[7] || ''); // FIX: PoC message is at index 7
                 };
                 cellActions.appendChild(messageButton);
                 tr.appendChild(cellActions);
@@ -615,7 +617,7 @@
                         // Also update the underlying data so the modal shows the new message if reopened
                         var request = allRequests.find(function(r) { return r[0] === id; });
                         if (request) {
-                            request[6] = message;
+                            request[7] = message; // FIX: PoC message is at index 7
                         }
                     } else {
                         showMessage('Error saving message: ' + response.message, 'error');

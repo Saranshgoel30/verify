@@ -73,6 +73,12 @@
             box-shadow: 0 0 0 3px rgba(74, 105, 255, 0.1);
             outline: none;
         }
+        input[readonly] {
+            background-color: #eef1f4;
+            color: #555;
+            cursor: default;
+            border-color: #dbe1e8;
+        }
         textarea {
             min-height: 90px;
             resize: vertical;
@@ -173,22 +179,22 @@
 
             <!-- Step 2: OTP and Details -->
             <div id="step2" class="step">
-                <p>An OTP has been sent to <strong id="userEmail"></strong>. Please enter it below along with your details.</p>
+                <p>An OTP has been sent to <strong id="userEmail"></strong>. Please enter it below and confirm your details.</p>
                 <div class="form-group">
                     <label for="otp">4-Digit OTP</label>
                     <input type="text" id="otp" class="otp-input" maxlength="4" placeholder="1234">
                 </div>
                 <div class="form-group">
                     <label for="fullName">Full Name</label>
-                    <input type="text" id="fullName" placeholder="Your Full Name">
+                    <input type="text" id="fullName" placeholder="Your Full Name" readonly>
                 </div>
                 <div class="form-group">
                     <label for="rollNumber">Roll Number</label>
-                    <input type="text" id="rollNumber" placeholder="Your Roll Number">
+                    <input type="text" id="rollNumber" placeholder="Your Roll Number" readonly>
                 </div>
                 <div class="form-group">
                     <label for="pocName">PoC Name</label>
-                    <input type="text" id="pocName" placeholder="e.g., Prof. XYZ">
+                    <input type="text" id="pocName" placeholder="e.g., Prof. XYZ" readonly>
                 </div>
                 <div class="form-group">
                     <label for="studentMessage">Message for PoC (Optional)</label>
@@ -240,8 +246,11 @@
                 otpBtn.innerHTML = "Get OTP";
                 if (response && response.success) {
                     document.getElementById('userEmail').textContent = currentEmail;
+                    document.getElementById('fullName').value = response.studentName || '';
+                    document.getElementById('rollNumber').value = response.rollNumber || '';
+                    document.getElementById('pocName').value = response.pocName || '';
                     showStep('step2');
-                    showMessage("OTP sent to your email.", "success");
+                    showMessage("OTP sent to your email. Please confirm your details below.", "success");
                 } else {
                     showMessage(response && response.message ? response.message : "An unknown error occurred.", "error");
                 }
@@ -267,8 +276,8 @@
         var pocName = document.getElementById("pocName").value;
         var studentMessage = document.getElementById("studentMessage").value;
 
-        if (!fullName || !rollNumber || !pocName) {
-            showMessage("Please fill in all your details.", "error");
+        if (!otp) { // Only check for OTP now
+            showMessage("Please enter the OTP.", "error");
             isSubmitting = false;
             submitBtn.disabled = false;
             submitBtn.innerHTML = "Verify & Submit";
