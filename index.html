@@ -64,7 +64,7 @@
             color: #2b2d42;
             font-size: 15px;
         }
-        input[type="email"], input[type="text"] {
+        input[type="email"], input[type="text"], textarea {
             width: 100%;
             padding: 14px 16px;
             border: 1px solid #e1e5ee;
@@ -72,7 +72,7 @@
             font-size: 15px;
             background-color: #f8f9fa;
         }
-        input[type="email"]:focus, input[type="text"]:focus {
+        input[type="email"]:focus, input[type="text"]:focus, textarea:focus {
             border-color: #1a237e;
             outline: none;
         }
@@ -153,33 +153,55 @@
 <body>
     <div class="container">
         <div class="card">
-            <div class="card-top"></div>
-            <div class="logo">
-                <img src="https://upload.wikimedia.org/wikipedia/en/9/9b/Ashoka_University_Logo.png" alt="Ashoka University Logo" width="60" height="60" style="display:block;margin:0 auto;" onerror="this.style.display='none';" />
+            <div class="card-top">
+                <img src="https://lh3.googleusercontent.com/d/1x_S4_2s4v_G-0c_E-2b2b_8a_9c_7d_F" alt="Logo" class="logo">
+                <h1>Student Verification</h1>
             </div>
-            <h1>Superset Verification System</h1>
+
+            <!-- Step 1: Email Input -->
+            <div id="step1" class="step active">
+                <p>Enter your IIIT-D email to receive a verification OTP.</p>
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" placeholder="name@iiitd.ac.in">
+                </div>
+                <button id="otpBtn" onclick="requestOTP()">Get OTP</button>
+            </div>
+
+            <!-- Step 2: OTP and Details -->
+            <div id="step2" class="step">
+                <p>An OTP has been sent to <strong id="userEmail"></strong>. Please enter it below along with your details.</p>
+                <div class="form-group">
+                    <label for="otp">4-Digit OTP</label>
+                    <input type="text" id="otp" class="otp-input" maxlength="4" placeholder="1234">
+                </div>
+                <div class="form-group">
+                    <label for="fullName">Full Name</label>
+                    <input type="text" id="fullName" placeholder="Your Full Name">
+                </div>
+                <div class="form-group">
+                    <label for="rollNumber">Roll Number</label>
+                    <input type="text" id="rollNumber" placeholder="Your Roll Number">
+                </div>
+                <div class="form-group">
+                    <label for="pocName">PoC Name</label>
+                    <input type="text" id="pocName" placeholder="e.g., Prof. XYZ">
+                </div>
+                <div class="form-group">
+                    <label for="studentMessage">Message for PoC (Optional)</label>
+                    <textarea id="studentMessage" placeholder="Enter a brief message for your PoC..."></textarea>
+                </div>
+                <button id="submitBtn" onclick="verifyAndSubmit()">Verify & Submit</button>
+                <p class="resend-link-container">Didn't receive OTP? <a href="#" id="resendLink" onclick="resendOTP()">Resend OTP</a></p>
+            </div>
+
+            <!-- Step 3: Completion Message -->
+            <div id="step3" class="step">
+                <h2>Verification Complete!</h2>
+                <p id="completionMessage"></p>
+            </div>
+
             <div id="message"></div>
-            <div id="emailStep" class="step active">
-                <div class="form-group">
-                    <label for="email">Enter Your College Email</label>
-                    <input type="email" id="email" placeholder="your.name_batch@ashoka.edu.in">
-                    <button id="otpBtn" type="button" onclick="requestOTP()">Send OTP</button>
-                </div>
-                <div class="info">
-                    <p>Enter your college email address to receive a one-time verification code. This code will be used to verify your identity.</p>
-                </div>
-            </div>
-            <div id="otpStep" class="step">
-                <div class="form-group">
-                    <label for="otp">Enter 4-digit OTP sent to your email</label>
-                    <input type="text" id="otp" class="otp-input" placeholder="Enter 4-digit code" maxlength="4">
-                    <button id="submitBtn" type="button" onclick="verifyAndSubmit()">Verify & Submit</button>
-                    <a class="resend-link" id="resendLink" onclick="resendOTP()">Didn't receive the code? Resend OTP</a>
-                </div>
-                <div class="info">
-                    <p>Enter the 4-digit verification code sent to your email. If you don't see it, check your spam folder or request a new code.</p>
-                </div>
-            </div>
         </div>
     </div>
     <script>
@@ -230,39 +252,46 @@
     }
     function verifyAndSubmit() {
         if (isSubmitting) return;
+
         var otp = document.getElementById("otp").value;
-        if (!otp || otp.length !== 4 || isNaN(otp)) {
-            showMessage("Please enter a valid 4-digit OTP", "error");
-            return;
-        }
-        isSubmitting = true;
         var submitBtn = document.getElementById("submitBtn");
         submitBtn.disabled = true;
         submitBtn.innerHTML = "Verifying...";
+
+        var fullName = document.getElementById("fullName").value;
+        var rollNumber = document.getElementById("rollNumber").value;
+        var pocName = document.getElementById("pocName").value;
+        var studentMessage = document.getElementById("studentMessage").value;
+
+        if (!fullName || !rollNumber || !pocName) {
+            showMessage("Please fill in all your details.", "error");
+            isSubmitting = false;
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = "Verify & Submit";
+            return;
+        }
+
         google.script.run
             .withSuccessHandler(function(response) {
-                if (response && response.success) {
-                    showMessage(response.message, "success");
-                    setTimeout(function() {
-                        document.getElementById("email").value = "";
-                        document.getElementById("otp").value = "";
-                        showStep('emailStep');
-                    }, 3000);
-                } else {
-                    showMessage(response && response.message ? response.message : "Unknown error", "error");
-                }
+                isSubmitting = false;
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = "Verify & Submit";
-                isSubmitting = false;
+                if (response.success) {
+                    document.getElementById("completionMessage").textContent = response.message;
+                    showStep('step3');
+                } else {
+                    showMessage(response.message, "error");
+                }
             })
             .withFailureHandler(function(error) {
-                showMessage("Error: " + error, "error");
+                isSubmitting = false;
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = "Verify & Submit";
-                isSubmitting = false;
+                showMessage("An error occurred: " + error.message, "error");
             })
-            .verifyOTPAndSubmit(currentEmail, otp);
+            .verifyAndSubmit(currentEmail, otp, fullName, rollNumber, pocName, studentMessage);
     }
+
     function resendOTP() {
         if (isSubmitting) return;
         isSubmitting = true;

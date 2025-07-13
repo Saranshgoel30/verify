@@ -22,7 +22,11 @@
             --gray-300: #dee2e6;
             --gray-600: #6c757d;
             --gray-800: #343a40;
+            --gray-900: #212529;
             --white: #ffffff;
+            --radius: 8px;
+            --radius-sm: 4px;
+            --shadow-lg: 0 10px 25px rgba(0,0,0,0.15);
         }
         
         body {
@@ -147,20 +151,29 @@
         }
         
         .stat-number {
-            font-size: 32px;
+            font-size: 2em;
             font-weight: 700;
-            color: var(--gray-800);
-            margin: 5px 0;
+            color: var(--gray-900);
         }
-        
+
+        .bulk-actions {
+            padding: 15px;
+            background-color: var(--gray-50);
+            border-radius: var(--radius-sm);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
         .filters-row {
+            padding: 15px;
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
             margin-bottom: 25px;
             flex-wrap: wrap;
             gap: 15px;
-            padding: 15px;
             background-color: var(--gray-100);
             border-radius: 10px;
         }
@@ -218,6 +231,12 @@
             align-items: center;
         }
         
+        .action-cell button {
+            margin-right: 5px;
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
         .status-select {
             padding: 6px 10px;
             border: 1px solid var(--gray-300);
@@ -273,31 +292,59 @@
         
         .modal-content {
             background-color: #fefefe;
-            margin: 5% auto;
-            padding: 20px;
+            margin: 10% auto;
+            padding: 25px;
             border: 1px solid #888;
             width: 80%;
             max-width: 500px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            position: relative;
         }
-        
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            font-size: 1.25em;
+            color: var(--primary);
+        }
+
         .close {
             color: #aaa;
-            float: right;
             font-size: 28px;
             font-weight: bold;
+            cursor: pointer;
         }
-        
+
         .close:hover,
         .close:focus {
             color: black;
             text-decoration: none;
             cursor: pointer;
         }
-        
+
+        .modal-content textarea {
+            width: 100%;
+            padding: 10px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--gray-400);
+            min-height: 100px;
+            margin-bottom: 15px;
+        }
+
+        .modal-footer {
+            text-align: right;
+        }
+
         @media (max-width: 768px) {
-            .header-row, .stats-row, .filters-row {
+            .header-row, .stats-row, .filters-row, .bulk-actions {
                 flex-direction: column;
                 align-items: stretch;
             }
@@ -317,259 +364,335 @@
     <div class="container">
         <div class="card">
             <div class="header-row">
-                <h1>Point of Contact Dashboard</h1>
+                <h1>PoC Dashboard</h1>
                 <div class="btn-group">
-                    <button id="refreshBtn">Refresh</button>
-                    <button id="testConnectionBtn">Test Connection</button>
+                    <button onclick="loadRequests()">
+                        <span class="icon">&#x21bb;</span> Refresh
+                    </button>
                 </div>
             </div>
-            
+
             <div id="message"></div>
-            
+
+            <!-- Stats Cards -->
             <div class="stats-row">
                 <div class="stat-card stat-pending">
-                    <span class="stat-label">Pending</span>
-                    <span id="statPending" class="stat-number">0</span>
-                    <span class="stat-label">Requests</span>
+                    <div class="stat-label">Pending</div>
+                    <div id="pending-count" class="stat-number">0</div>
                 </div>
                 <div class="stat-card stat-approved">
-                    <span class="stat-label">Approved</span>
-                    <span id="statApproved" class="stat-number">0</span>
-                    <span class="stat-label">Requests</span>
+                    <div class="stat-label">Approved</div>
+                    <div id="approved-count" class="stat-number">0</div>
                 </div>
                 <div class="stat-card stat-rejected">
-                    <span class="stat-label">Rejected</span>
-                    <span id="statRejected" class="stat-number">0</span>
-                    <span class="stat-label">Requests</span>
+                    <div class="stat-label">Rejected</div>
+                    <div id="rejected-count" class="stat-number">0</div>
                 </div>
             </div>
-            <!-- Modal for custom message -->
-            <div id="customMessageModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.3); z-index:1000; align-items:center; justify-content:center;">
-                <div style="background:#fff; padding:30px; border-radius:10px; max-width:400px; width:90%; box-shadow:0 5px 20px rgba(0,0,0,0.15);">
-                    <h2 id="modalTitle" style="margin-bottom:15px; font-size:1.2rem; color:#4361ee;">Custom Message</h2>
-                    <textarea id="customMessageInput" rows="4" style="width:100%; padding:10px; border-radius:6px; border:1px solid #dee2e6; margin-bottom:15px;"></textarea>
-                    <div style="display:flex; justify-content:flex-end; gap:10px;">
-                        <button id="modalCancelBtn" style="background:#eee; color:#333;">Cancel</button>
-                        <button id="modalSendBtn" class="btn-update">Send</button>
-                    </div>
-                </div>
+
+            <!-- Bulk Actions -->
+            <div class="bulk-actions">
+                <select id="bulkAction" class="filter-select">
+                    <option value="">Bulk Action</option>
+                    <option value="Approved">Approve Selected</option>
+                    <option value="Rejected">Reject Selected</option>
+                </select>
+                <button id="applyBulkAction" class="btn-update">Apply</button>
             </div>
-            
-            <div class="filters-row">
-                <div class="filter-group">
-                    <label for="pocFilter">Filter by POC</label>
-                    <select id="pocFilter" class="filter-select">
-                        <option value="">All POCs</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <button id="applyFilters" class="btn-update">Apply Filters</button>
-                    <button id="clearFilters">Clear Filters</button>
-                </div>
-            </div>
-            
-            <div id="requests">
-                <div class="loading">
+
+            <!-- Filters -->
+            <?!= include('poc-filters'); ?>
+
+            <div class="table-container">
+                <div id="loading" class="loading" style="display: none;">
                     <div class="spinner"></div>
                     <p>Loading requests...</p>
                 </div>
+                <table id="requestsTable">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll"></th>
+                            <th>Date</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>PoC Name</th>
+                            <th>Student Message</th>
+                            <th>Status</th>
+                            <th>PoC Message</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Data will be populated here -->
+                    </tbody>
+                </table>
+                <div id="no-data" class="no-data" style="display: none;">No pending requests found.</div>
             </div>
         </div>
     </div>
-    
+
+    <!-- Message Modal -->
+    <div id="messageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add/Edit Message</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <input type="hidden" id="modalRequestId">
+            <textarea id="modalMessageText" placeholder="Enter your message for the student..."></textarea>
+            <div class="modal-footer">
+                <button onclick="saveMessage()" class="btn-update">Save Message</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         var allRequests = [];
         var stats = { pending: 0, approved: 0, rejected: 0 };
-        
+
         function updateStats(data) {
-            // Fetch approved/rejected counts from server
-            google.script.run.withSuccessHandler(function(counts) {
-                document.getElementById("statApproved").innerText = counts.approved;
-                document.getElementById("statRejected").innerText = counts.rejected;
-            }).getApprovedRejectedCounts();
-            // Pending is still local
-            var pending = data.length;
-            document.getElementById("statPending").innerText = pending;
+            stats = data.reduce(function(acc, row) {
+                var status = row[5] || "Pending";
+                if (status === "Pending") acc.pending++;
+                else if (status === "Approved") acc.approved++;
+                else if (status === "Rejected") acc.rejected++;
+                return acc;
+            }, { pending: 0, approved: 0, rejected: 0 });
+
+            document.getElementById('pending-count').textContent = stats.pending;
+            document.getElementById('approved-count').textContent = stats.approved;
+            document.getElementById('rejected-count').textContent = stats.rejected;
         }
-        
+
         function displayRequests(data) {
+            var tableBody = document.getElementById('requestsTable').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = '';
+
             if (data.length === 0) {
-                document.getElementById("requests").innerHTML = "<div class='no-data'>No matching requests found.</div>";
+                document.getElementById('no-data').style.display = 'block';
                 return;
             }
-            
-            var tableHtml = "<div class='table-container'><table><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>POC</th><th>Date Requested</th><th>Action</th></tr></thead><tbody>";
-            
-            data.forEach(function(row) {
-                var formattedDate = "N/A";
-                if (row[0] && !isNaN(new Date(row[0]).getTime())) {
-                    var requestDate = new Date(row[0]);
-                    formattedDate = requestDate.toLocaleDateString() + " " + requestDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                }
+            document.getElementById('no-data').style.display = 'none';
+
+            data.forEach(function(row, index) {
+                var tr = document.createElement('tr');
+                var requestId = row[0]; // Assuming timestamp is the unique ID
+
+                // Checkbox
+                var cellCheckbox = document.createElement('td');
+                var checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'row-checkbox';
+                checkbox.setAttribute('data-id', requestId);
+                cellCheckbox.appendChild(checkbox);
+                tr.appendChild(cellCheckbox);
+
+                // Date
+                var cellDate = document.createElement('td');
+                cellDate.textContent = new Date(requestId).toLocaleDateString();
+                tr.appendChild(cellDate);
+
+                // Name, Email, PoC Name
+                [1, 3, 4].forEach(function(i) {
+                    var cell = document.createElement('td');
+                    cell.textContent = row[i];
+                    tr.appendChild(cell);
+                });
                 
-                var currentStatus = row[6] || "Pending";
-                
-                tableHtml += "<tr>";
-                tableHtml += "<td><strong>" + (row[1] || 'N/A') + "</strong></td>";
-                tableHtml += "<td>" + (row[2] || 'N/A') + "</td>";
-                tableHtml += "<td>" + (row[3] || 'N/A') + "</td>";
-                tableHtml += "<td>" + (row[4] || 'N/A') + "</td>";
-                tableHtml += "<td>" + formattedDate + "</td>";
-                tableHtml += "<td class='action-cell'><select id='status-" + row[1] + "' class='status-select'><option value='Pending'" + (currentStatus === "Pending" ? " selected" : "") + ">Pending</option><option value='Approved'" + (currentStatus === "Approved" ? " selected" : "") + ">Approved</option><option value='Rejected'" + (currentStatus === "Rejected" ? " selected" : "") + ">Rejected</option></select><button class='btn-update' onclick='handleUpdateRequestStatus(\"" + row[1] + "\", \"" + row[3] + "\")'>Update</button></td>";
-                tableHtml += "</tr>";
+                // Student Message
+                var cellStudentMessage = document.createElement('td');
+                cellStudentMessage.textContent = row[7] || '-'; // Assuming student message is at index 7
+                tr.appendChild(cellStudentMessage);
+
+                // Status
+                var cellStatus = document.createElement('td');
+                var statusSelect = document.createElement('select');
+                statusSelect.className = 'status-select';
+                statusSelect.setAttribute('data-id', requestId);
+                ['Pending', 'Approved', 'Rejected'].forEach(function(status) {
+                    var option = document.createElement('option');
+                    option.value = status;
+                    option.textContent = status;
+                    if (row[5] === status) option.selected = true;
+                    statusSelect.appendChild(option);
+                });
+                statusSelect.addEventListener('change', function(e) {
+                    updateStatus(e.target.getAttribute('data-id'), e.target.value);
+                });
+                cellStatus.appendChild(statusSelect);
+                tr.appendChild(cellStatus);
+
+                // PoC Message
+                var cellPocMessage = document.createElement('td');
+                cellPocMessage.id = 'poc-message-' + requestId;
+                cellPocMessage.textContent = row[6] || '-'; // Assuming PoC message is at index 6
+                tr.appendChild(cellPocMessage);
+
+                // Actions
+                var cellActions = document.createElement('td');
+                var messageButton = document.createElement('button');
+                messageButton.textContent = 'Message';
+                messageButton.className = 'btn-update';
+                messageButton.onclick = function() {
+                    openMessageModal(requestId, row[6] || '');
+                };
+                cellActions.appendChild(messageButton);
+                tr.appendChild(cellActions);
+
+                tableBody.appendChild(tr);
             });
-            
-            tableHtml += "</tbody></table></div>";
-            document.getElementById("requests").innerHTML = tableHtml;
         }
-        
+
         function loadRequests() {
-            document.getElementById("requests").innerHTML = "<div class='loading'><div class='spinner'></div><p>Loading requests...</p></div>";
-            document.getElementById("message").style.display = "none";
-            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('message').style.display = 'none';
+
             google.script.run
                 .withSuccessHandler(function(data) {
-                    if (!Array.isArray(data)) {
-                        document.getElementById("requests").innerHTML = "<div class='no-data'>Invalid data received from server.</div>";
-                        return;
-                    }
+                    document.getElementById('loading').style.display = 'none';
+                    // Skip header row if present
+                    allRequests = data[0][0] === 'Timestamp' ? data.slice(1) : data;
                     
-                    allRequests = data;
-                    populatePocFilter(extractPocNames(data));
-                    displayRequests(data);
-                    updateStats(data);
+                    var pocNames = extractPocNames(allRequests);
+                    populatePocFilter(pocNames);
+                    
+                    displayRequests(allRequests);
+                    updateStats(allRequests);
                 })
                 .withFailureHandler(function(error) {
-                    document.getElementById("requests").innerHTML = "<div class='no-data'>Error loading data: " + error + "</div>";
+                    document.getElementById('loading').style.display = 'none';
+                    showMessage('Error loading requests: ' + error.message, 'error');
                 })
                 .getPendingRequests();
         }
-        
-        function extractPocNames(data) {
-            var pocs = [];
-            var seen = {};
-            data.forEach(function(row) {
-                if (row[4] && !seen[row[4]]) {
-                    pocs.push(row[4]);
-                    seen[row[4]] = true;
-                }
-            });
-            return pocs.sort();
-        }
-        
-        function populatePocFilter(pocs) {
-            var filterSelect = document.getElementById("pocFilter");
-            filterSelect.innerHTML = '<option value="">All POCs</option>';
-            
-            pocs.forEach(function(poc) {
-                var option = document.createElement('option');
-                option.value = poc;
-                option.textContent = poc;
-                filterSelect.appendChild(option);
-            });
-        }
-        
-        function applyFilters() {
-            var pocFilter = document.getElementById("pocFilter").value;
-            var filteredData = allRequests.slice();
-            
-            if (pocFilter) {
-                filteredData = filteredData.filter(function(row) {
-                    return row[4] === pocFilter;
-                });
-            }
-            
-            displayRequests(filteredData);
-            updateStats(filteredData);
-        }
-        
-        function clearFilters() {
-            document.getElementById("pocFilter").value = "";
-            displayRequests(allRequests);
-            updateStats(allRequests);
-        }
-        
-        function handleUpdateRequestStatus(id, email) {
-            var statusSelect = document.getElementById("status-" + id);
-            var newStatus = statusSelect.value;
-            var currentRequest = allRequests.find(req => req[1] === id);
-            var currentStatus = currentRequest ? (currentRequest[6] || "Pending") : "Pending";
-            if (newStatus === currentStatus) return;
-            // Use modal for both approval and rejection
-            showCustomMessageModal(newStatus, function(customMsg) {
-                if (newStatus === "Rejected" && (!customMsg || !customMsg.trim())) {
-                    alert("Rejection reason cannot be empty. Status update cancelled.");
-                    statusSelect.value = currentStatus;
-                    return;
-                }
-                updateRequestStatus(id, email, newStatus, customMsg);
-            }, newStatus === "Approved" ? "Enter approval message (optional):" : "Enter rejection reason:");
-        }
-        // Modal logic
-        function showCustomMessageModal(status, callback, label) {
-            var modal = document.getElementById("customMessageModal");
-            var input = document.getElementById("customMessageInput");
-            var title = document.getElementById("modalTitle");
-            input.value = "";
-            title.innerText = label || "Custom Message";
-            modal.style.display = "flex";
-            function closeModal() {
-                modal.style.display = "none";
-                document.getElementById("modalSendBtn").onclick = null;
-                document.getElementById("modalCancelBtn").onclick = null;
-            }
-            document.getElementById("modalSendBtn").onclick = function() {
-                closeModal();
-                callback(input.value);
-            };
-            document.getElementById("modalCancelBtn").onclick = function() {
-                closeModal();
-            };
-        }
-        function updateRequestStatus(id, email, newStatus, rejectionReason) {
-            var messageEl = document.getElementById("message");
-            messageEl.innerHTML = "Updating status...";
-            messageEl.className = "info";
-            messageEl.style.display = "block";
-            
+
+        function updateStatus(id, status) {
+            // The prompt is removed as per user request to decouple message from status change.
+            // The message can be added/edited via the 'Message' button.
+            document.getElementById('loading').style.display = 'block';
             google.script.run
-                .withSuccessHandler(function(result) {
-                    messageEl.innerHTML = result;
-                    messageEl.className = "success";
-                    loadRequests();
+                .withSuccessHandler(function(response) {
+                    document.getElementById('loading').style.display = 'none';
+                    if (response.success) {
+                        showMessage('Status updated successfully.', 'success');
+                        loadRequests(); // Refresh data
+                    } else {
+                        showMessage('Error: ' + response.message, 'error');
+                    }
                 })
                 .withFailureHandler(function(error) {
-                    messageEl.innerHTML = "Error: " + error;
-                    messageEl.className = "error";
+                    document.getElementById('loading').style.display = 'none';
+                    showMessage('Error: ' + error.message, 'error');
                 })
-                .updateStatus(id, email, newStatus, rejectionReason);
+                .updateRequestStatus(id, status, null); // Pass null for message, so it's not updated
         }
-        
-        function testConnection() {
-            var messageEl = document.getElementById("message");
-            messageEl.innerHTML = "Testing connection...";
-            messageEl.className = "info";
-            messageEl.style.display = "block";
-            
+
+        function openMessageModal(id, currentMessage) {
+            document.getElementById('modalRequestId').value = id;
+            document.getElementById('modalMessageText').value = currentMessage;
+            document.getElementById('messageModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('messageModal').style.display = 'none';
+        }
+
+        function saveMessage() {
+            var id = document.getElementById('modalRequestId').value;
+            var message = document.getElementById('modalMessageText').value;
+
+            closeModal();
+            document.getElementById('loading').style.display = 'block';
+
             google.script.run
-                .withSuccessHandler(function(result) {
-                    messageEl.innerHTML = result;
-                    messageEl.className = "success";
+                .withSuccessHandler(function(response) {
+                    document.getElementById('loading').style.display = 'none';
+                    if (response.success) {
+                        showMessage('Message saved successfully.', 'success');
+                        // Update message in the table locally
+                        document.getElementById('poc-message-' + id).textContent = message || '-';
+                    } else {
+                        showMessage('Error saving message: ' + response.message, 'error');
+                    }
                 })
                 .withFailureHandler(function(error) {
-                    messageEl.innerHTML = "Connection error: " + error;
-                    messageEl.className = "error";
+                    document.getElementById('loading').style.display = 'none';
+                    showMessage('Error: ' + error.message, 'error');
                 })
-                .testConnection();
+                .updatePocMessage(id, message);
         }
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById("refreshBtn").addEventListener("click", loadRequests);
-            document.getElementById("testConnectionBtn").addEventListener("click", testConnection);
-            document.getElementById("applyFilters").addEventListener("click", applyFilters);
-            document.getElementById("clearFilters").addEventListener("click", clearFilters);
-            loadRequests();
+
+        function applyBulkActions() {
+            var selectedAction = document.getElementById('bulkAction').value;
+            if (!selectedAction) {
+                showMessage('Please select a bulk action.', 'info');
+                return;
+            }
+
+            var checkboxes = document.querySelectorAll('.row-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showMessage('Please select at least one request.', 'info');
+                return;
+            }
+
+            var ids = [];
+            checkboxes.forEach(function(cb) {
+                ids.push(cb.getAttribute('data-id'));
+            });
+
+            var message = prompt("Enter a message for all selected students (optional):");
+            if (message === null) return; // User cancelled
+
+            document.getElementById('loading').style.display = 'block';
+            google.script.run
+                .withSuccessHandler(function(response) {
+                    document.getElementById('loading').style.display = 'none';
+                    if (response.success) {
+                        showMessage('Bulk update successful.', 'success');
+                        loadRequests(); // Refresh
+                    } else {
+                        showMessage('Bulk update failed: ' + response.message, 'error');
+                    }
+                })
+                .withFailureHandler(function(error) {
+                    document.getElementById('loading').style.display = 'none';
+                    showMessage('Error: ' + error.message, 'error');
+                })
+                .bulkUpdateRequestStatus(ids, selectedAction, message);
+        }
+
+        // Event Listeners
+        window.addEventListener('load', loadRequests);
+        document.getElementById('applyFilters').addEventListener('click', applyFilters);
+        document.getElementById('clearFilters').addEventListener('click', clearFilters);
+        document.getElementById('applyBulkAction').addEventListener('click', applyBulkActions);
+
+        document.getElementById('selectAll').addEventListener('change', function(e) {
+            var checkboxes = document.querySelectorAll('.row-checkbox');
+            checkboxes.forEach(function(checkbox) {
+                checkbox.checked = e.target.checked;
+            });
         });
+
+        // Close modal if clicked outside
+        window.onclick = function(event) {
+            var modal = document.getElementById('messageModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+
+        // Utility to show messages
+        function showMessage(message, type) {
+            var messageEl = document.getElementById("message");
+            messageEl.innerHTML = message;
+            messageEl.className = type === 'error' ? "error" : "success";
+            messageEl.style.display = "block";
+
+            setTimeout(function() {
+                messageEl.style.display = "none";
+            }, 5000);
+        }
     </script>
 </body>
 </html>
