@@ -16,11 +16,11 @@ function include(filename) {
 
 function getSpreadsheet_() {
   // Use openById for reliability if possible, fallback to getActiveSpreadsheet
-  // Replace 'YOUR_SPREADSHEET_ID' with actual ID for best compatibility
+  // Forcing getActiveSpreadsheet() as per user request.
   try {
-    // return SpreadsheetApp.openById('YOUR_SPREADSHEET_ID');
     return SpreadsheetApp.getActiveSpreadsheet();
   } catch (e) {
+    Logger.log('getSpreadsheet_ Error: ' + e.toString());
     throw new Error('Unable to access spreadsheet. Please contact admin.');
   }
 }
@@ -37,9 +37,9 @@ function generateAndSendOTP(email) {
 
     var ss = getSpreadsheet_();
     var requestSheet = ss.getSheetByName("Request");
-    var pocsSheet = ss.getSheetByName("pocs");
+    var studentsSheet = ss.getSheetByName("Students"); // FIX: Changed from "pocs" to "Students"
     var pendingSheet = ss.getSheetByName("Pending");
-    if (!requestSheet || !pocsSheet || !pendingSheet) {
+    if (!requestSheet || !studentsSheet || !pendingSheet) { // FIX: Changed from "pocs" to "Students"
       return {
         success: false,
         message: "System error: Required sheet(s) missing. Please contact admin."
@@ -57,15 +57,15 @@ function generateAndSendOTP(email) {
       }
     }
     
-    // Check if email exists in POCs database
-    var pocsData = pocsSheet.getDataRange().getValues();
+    // Check if email exists in Students database
+    var studentsData = studentsSheet.getDataRange().getValues(); // FIX: Changed from "pocs" to "Students"
     var emailInDatabase = false;
     var studentName = "";
     
-    for (var i = 1; i < pocsData.length; i++) {
-      if (pocsData[i][2] === email) {
+    for (var i = 1; i < studentsData.length; i++) { // FIX: Changed from pocsData to studentsData
+      if (studentsData[i][2] === email) { // Assuming student email is in Column C
         emailInDatabase = true;
-        studentName = pocsData[i][1];
+        studentName = studentsData[i][1]; // Assuming student name is in Column B
         break;
       }
     }
@@ -150,17 +150,35 @@ function verifyAndSubmit(email, otp, fullName, rollNumber, pocName, studentMessa
 
     // OTP is correct, now add to pending
     var pendingSheet = ss.getSheetByName("Pending");
-    if (!pendingSheet) {
-      return { success: false, message: "System error: Pending sheet not found." };
+    var pocsSheet = ss.getSheetByName("pocs");
+    if (!pendingSheet || !pocsSheet) {
+      return { success: false, message: "System error: Pending or PoCs sheet not found." };
+    }
+
+    // Find PoC Email
+    var pocsData = pocsSheet.getDataRange().getValues();
+    var pocEmail = "";
+    for (var i = 1; i < pocsData.length; i++) {
+        if (pocsData[i][0] && pocsData[i][0].toLowerCase().trim() === pocName.toLowerCase().trim()) {
+            pocEmail = pocsData[i][2]; // FIX: Get PoC Email from Column C
+            break;
+        }
+    }
+
+    if (!pocEmail) {
+        Logger.log("verifyAndSubmit: Could not find email for PoC: " + pocName);
+        // Decide if you want to fail here or proceed without the email
     }
 
     var timestamp = new Date();
+    // FIX: Added pocEmail to the pending request row
     var newRequest = [
       timestamp,
       fullName,
       rollNumber,
       email,
       pocName,
+      pocEmail, // PoC Email
       "Pending",
       "", // POC Message
       studentMessage || "" // Student Message
@@ -185,6 +203,16 @@ function verifyAndSubmit(email, otp, fullName, rollNumber, pocName, studentMessa
   }
 }
 
+function sendOTPEmail(email, studentName, otp) {
+  try {
+    var subject = "Your Verification OTP";
+    var body = "Dear " + studentName + ",\n\nYour OTP for student verification is: " + otp + "\n\nThis OTP is valid for 10 minutes.\n\nThank you,\nPlaceCom";
+    MailApp.sendEmail(email, subject, body);
+  } catch (e) {
+    Logger.log("sendOTPEmail Error: " + e.toString());
+  }
+}
+
 function sendNewRequestEmail(studentName, studentEmail, pocName, studentMessage) {
   try {
     var subject = "New Verification Request from " + studentName;
@@ -198,14 +226,16 @@ function sendNewRequestEmail(studentName, studentEmail, pocName, studentMessage)
     // Assuming you have a "POCs" sheet with names and emails.
     var ss = getSpreadsheet_();
     var pocsSheet = ss.getSheetByName("pocs");
-    if (!pocsSheet) return; // Or handle error
+    if (!pocsSheet) {
+        Logger.log("sendNewRequestEmail Error: 'pocs' sheet not found.");
+        return; 
+    }
 
     var pocsData = pocsSheet.getDataRange().getValues();
     var pocEmail = "";
     for (var i = 1; i < pocsData.length; i++) {
-      // Assuming PoC Name is in the first column (index 0) and Email in the second (index 1)
-      // Adjust column indices as per your sheet structure
-      if (pocsData[i][0].toLowerCase().trim() === pocName.toLowerCase().trim()) {
+      // Assuming PoC Name is in the first column (index 0) and Email in the third (index 2)
+      if (pocsData[i][0] && pocsData[i][0].toLowerCase().trim() === pocName.toLowerCase().trim()) {
         pocEmail = pocsData[i][2]; // Assuming email is in the 3rd column
         break;
       }
@@ -213,9 +243,11 @@ function sendNewRequestEmail(studentName, studentEmail, pocName, studentMessage)
 
     if (pocEmail) {
       MailApp.sendEmail(pocEmail, subject, body);
+    } else {
+      Logger.log("sendNewRequestEmail Error: PoC Email not found for PoC Name: " + pocName);
     }
   } catch (e) {
-    // Optional: log error
+    Logger.log("sendNewRequestEmail Error: " + e.toString());
   }
 }
 
@@ -258,36 +290,42 @@ function updateStatus(id, email, status, message) {
   var rowFound = false;
 
   for (var i = 1; i < pendingData.length; i++) {
-    if (pendingData[i][1] == id && pendingData[i][3] == email) {
+    // Match on email (student) and timestamp (id)
+    if (pendingData[i][3] == email && new Date(pendingData[i][0]).getTime() == new Date(id).getTime()) {
       var rowData = pendingData[i].slice();
-      var studentName = rowData[2];
+      var studentName = rowData[1];
       var studentEmail = rowData[3];
       var pocName = rowData[4];
-      var pocEmail = rowData[5];
+      var pocEmail = rowData[5]; // Now correctly contains the PoC email
 
+      var targetSheet;
       if (status === "Approved") {
-        var approvedRow = [rowData[0], new Date(), rowData[1], rowData[2], rowData[3], rowData[4], rowData[5], status];
-        approvedSheet.insertRowBefore(2);
-        approvedSheet.getRange(2, 1, 1, approvedRow.length).setValues([approvedRow]);
-        var approvalMessage = "Your Superset verification request has been approved.";
-        if (message && message.trim()) {
-          approvalMessage += "\n\nNote from your verifier: " + message;
-        }
-        sendEmailToPOC(pocEmail, pocName, studentName, studentEmail, "Request Approved", "You have approved " + studentName + "'s verification request.");
-        sendEmailToStudent(studentEmail, studentName, "Request Approved", approvalMessage);
+        targetSheet = approvedSheet;
       } else if (status === "Rejected") {
-        var rejectedRow = [rowData[0], new Date(), rowData[1], rowData[2], rowData[3], rowData[4], rowData[5], status];
-        rejectedSheet.insertRowBefore(2);
-        rejectedSheet.getRange(2, 1, 1, rejectedRow.length).setValues([rejectedRow]);
-        var rejectionMessage = "Your Superset verification request has been rejected. Please review the feedback on your Superset profile. Once all suggested changes are made, kindly resubmit for verification via Duperset.";
-        if (message) {
-          rejectionMessage += "\n\nNote from your verifier: " + message;
-        }
-        sendEmailToPOC(pocEmail, pocName, studentName, studentEmail, "Request Rejected", "You have rejected " + studentName + "'s verification request.");
-        sendEmailToStudent(studentEmail, studentName, "Request Rejected", rejectionMessage);
-      } else if (status === "Pending") {
-        return "Status remains pending";
+        targetSheet = rejectedSheet;
       }
+
+      if (targetSheet) {
+        var newRow = [
+          rowData[0], // Original Timestamp
+          new Date(), // Action Timestamp
+          rowData[1], // Full Name
+          rowData[2], // Roll Number
+          rowData[3], // Email
+          rowData[4], // PoC Name
+          message || rowData[7], // PoC Message
+          status
+        ];
+        targetSheet.appendRow(newRow);
+        
+        var emailSubject = "Your verification request has been " + status;
+        var emailBody = "Dear " + studentName + ",\n\nYour verification request has been " + status.toLowerCase() + ".";
+        if (message) {
+          emailBody += "\n\nMessage from your verifier: " + message;
+        }
+        sendApprovalEmail(studentEmail, studentName, status, message);
+      }
+      
       pendingSheet.deleteRow(i + 1);
       rowFound = true;
       return "Status updated successfully!";
@@ -318,7 +356,7 @@ function updatePocMessage(id, message) {
     }
 
     if (requestRow !== -1) {
-      sheet.getRange(requestRow, 7).setValue(message); // Update PoC message
+      sheet.getRange(requestRow, 8).setValue(message); // PoC message is now in column H (index 7)
       return { success: true, message: "Message updated successfully." };
     } else {
       return { success: false, message: "Request not found." };
@@ -348,17 +386,17 @@ function updateRequestStatus(id, status, pocMessage) {
     }
 
     if (requestRow !== -1) {
-      sheet.getRange(requestRow, 6).setValue(status); // Update status
+      sheet.getRange(requestRow, 7).setValue(status); // Status is in column G (index 6)
       // Only update the message if it's not null.
       // This prevents overwriting an existing message when just changing status.
       if (pocMessage !== null && pocMessage !== undefined) {
-        sheet.getRange(requestRow, 7).setValue(pocMessage); // Update PoC message
+        sheet.getRange(requestRow, 8).setValue(pocMessage); // PoC message is in column H (index 7)
       }
       
       // Send notification email to student
       var studentEmail = sheet.getRange(requestRow, 4).getValue();
       var studentName = sheet.getRange(requestRow, 2).getValue();
-      var finalPocMessage = (pocMessage !== null && pocMessage !== undefined) ? pocMessage : sheet.getRange(requestRow, 7).getValue();
+      var finalPocMessage = (pocMessage !== null && pocMessage !== undefined) ? pocMessage : sheet.getRange(requestRow, 8).getValue();
 
       sendApprovalEmail(studentEmail, studentName, status, finalPocMessage);
       
@@ -391,9 +429,9 @@ function bulkUpdateRequestStatus(ids, status, message) {
       var sheetDate = new Date(data[i][0]);
       if (idMap[sheetDate.getTime()]) {
         var requestRow = i + 1;
-        sheet.getRange(requestRow, 6).setValue(status); // Update status
+        sheet.getRange(requestRow, 7).setValue(status); // Update status in Col G
         if (message) {
-            sheet.getRange(requestRow, 7).setValue(message); // Update PoC message
+            sheet.getRange(requestRow, 8).setValue(message); // Update PoC message in Col H
         }
         
         var studentEmail = sheet.getRange(requestRow, 4).getValue();
@@ -425,9 +463,9 @@ function sendApprovalEmail(studentEmail, studentName, status, pocMessage) {
     }
     body += "Thank you,\nPlaceCom";
 
-    GmailApp.sendEmail(studentEmail, subject, body);
+    MailApp.sendEmail(studentEmail, subject, body);
   } catch (e) {
-    // Handle email sending error
+    Logger.log("sendApprovalEmail Error: " + e.toString());
   }
 }
 
@@ -452,6 +490,7 @@ function sendEmailToStudent(email, name, subject, message) {
     GmailApp.sendEmail(email, "Superset Verification: " + subject, plainText, {htmlBody: htmlBody});
     return true;
   } catch (e) {
+    Logger.log("sendEmailToStudent Error: " + e.toString());
     return false;
   }
 }
@@ -464,6 +503,7 @@ function sendEmailToPOC(pocEmail, pocName, studentName, studentEmail, subject, m
     GmailApp.sendEmail(pocEmail, "Superset Verification: " + subject, plainText, {htmlBody: htmlBody});
     return true;
   } catch (e) {
+    Logger.log("sendEmailToPOC Error: " + e.toString());
     return false;
   }
 }

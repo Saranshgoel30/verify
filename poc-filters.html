@@ -42,8 +42,6 @@
     function applyFilters() {
         const pocFilter = document.getElementById("pocFilter").value;
         
-        logDebug("Applying filters", { poc: pocFilter });
-        
         let filteredData = [...allRequests];
         
         // Apply PoC filter
@@ -60,7 +58,5 @@
         
         displayRequests(allRequests);
         updateStats(allRequests);
-        
-        logDebug("Filters cleared");
     }
 </script>
