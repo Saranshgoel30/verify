@@ -321,6 +321,7 @@
                 <div class="btn-group">
                     <button id="refreshBtn">Refresh</button>
                     <button id="testConnectionBtn">Test Connection</button>
+                    <button id="createTestDataBtn">Create Test Data</button>
                 </div>
             </div>
             
@@ -407,8 +408,16 @@
                 document.getElementById("statApproved").innerText = counts.approved;
                 document.getElementById("statRejected").innerText = counts.rejected;
             }).getApprovedRejectedCounts();
-            // Pending is still local
-            var pending = data.length;
+            // Pending is still local - skip header row if present
+            var rows = data;
+            if (rows.length > 0 && rows[0] && (
+                (typeof rows[0][0] === 'string' && rows[0][0].toLowerCase().indexOf('date') !== -1) ||
+                (typeof rows[0][1] === 'string' && rows[0][1].toLowerCase().indexOf('id') !== -1) ||
+                (typeof rows[0][2] === 'string' && rows[0][2].toLowerCase().indexOf('name') !== -1)
+            )) {
+                rows = rows.slice(1);
+            }
+            var pending = rows.length;
             document.getElementById("statPending").innerText = pending;
         }
         
@@ -417,9 +426,13 @@
                 document.getElementById("requests").innerHTML = "<div class='no-data'>Invalid data received from server.</div>";
                 return;
             }
-            // Skip header row if present
+            // Skip header row if present - more robust detection
             var rows = data;
-            if (rows.length > 0 && typeof rows[0][0] === 'string' && rows[0][0].toLowerCase().indexOf('date') !== -1) {
+            if (rows.length > 0 && rows[0] && (
+                (typeof rows[0][0] === 'string' && rows[0][0].toLowerCase().indexOf('date') !== -1) ||
+                (typeof rows[0][1] === 'string' && rows[0][1].toLowerCase().indexOf('id') !== -1) ||
+                (typeof rows[0][2] === 'string' && rows[0][2].toLowerCase().indexOf('name') !== -1)
+            )) {
                 rows = rows.slice(1);
             }
             if (rows.length === 0) {
@@ -452,7 +465,6 @@
                         "<option value='Rejected'" + ((row[6]||'Pending') === "Rejected" ? " selected" : "") + ">Rejected</option>" +
                     "</select>" +
                     "<button class='btn-update' onclick=\"handleUpdateRequestStatus('" + String(row[1]).replace(/'/g, "\\'") + "', '" + String(row[3]).replace(/'/g, "\\'") + "')\">Update</button>" +
-                    "<button class='btn-update' style='background:#fbbc05;color:#343a40;' onclick=\"handlePush('" + String(row[1]).replace(/'/g, "\\'") + "', '" + String(row[3]).replace(/'/g, "\\'") + "')\">Push</button>" +
                 "</td>";
                 tableHtml += "</tr>";
             });
@@ -467,10 +479,20 @@
             google.script.run
                 .withSuccessHandler(function(data) {
                     console.log('Received data from server:', data); // Debug log
+                    console.log('Data type:', typeof data, 'Is array:', Array.isArray(data), 'Length:', data ? data.length : 'N/A');
+                    
                     if (!Array.isArray(data)) {
-                        document.getElementById("requests").innerHTML = "<div class='no-data'>Invalid data received from server.</div>";
+                        document.getElementById("requests").innerHTML = "<div class='no-data'>Invalid data received from server. Expected array, got: " + typeof data + "</div>";
                         return;
                     }
+                    
+                    if (data.length === 0) {
+                        document.getElementById("requests").innerHTML = "<div class='no-data'>No data found in the Pending sheet. Please check if there are requests in your spreadsheet.</div>";
+                        return;
+                    }
+                    
+                    console.log('First row:', data[0]);
+                    console.log('Processing', data.length, 'total rows from spreadsheet');
                     
                     allRequests = data;
                     populatePocFilter(extractPocNames(data));
@@ -478,7 +500,8 @@
                     updateStats(data);
                 })
                 .withFailureHandler(function(error) {
-                    document.getElementById("requests").innerHTML = "<div class='no-data'>Error loading data: " + error + "</div>";
+                    console.error('Error loading data:', error);
+                    document.getElementById("requests").innerHTML = "<div class='no-data'>Error loading data: " + error + "<br><br>Please check:<br>1. Is your spreadsheet accessible?<br>2. Does the 'Pending' sheet exist?<br>3. Are you authorized to access this data?</div>";
                 })
                 .getPendingRequests();
         }
@@ -486,7 +509,16 @@
         function extractPocNames(data) {
             var pocs = [];
             var seen = {};
-            data.forEach(function(row) {
+            // Skip header row if present
+            var rows = data;
+            if (rows.length > 0 && rows[0] && (
+                (typeof rows[0][0] === 'string' && rows[0][0].toLowerCase().indexOf('date') !== -1) ||
+                (typeof rows[0][1] === 'string' && rows[0][1].toLowerCase().indexOf('id') !== -1) ||
+                (typeof rows[0][2] === 'string' && rows[0][2].toLowerCase().indexOf('name') !== -1)
+            )) {
+                rows = rows.slice(1);
+            }
+            rows.forEach(function(row) {
                 if (row[4] && !seen[row[4]]) {
                     pocs.push(row[4]);
                     seen[row[4]] = true;
@@ -601,9 +633,30 @@
                 .testConnection();
         }
         
+        function createTestData() {
+            var messageEl = document.getElementById("message");
+            messageEl.innerHTML = "Creating test data...";
+            messageEl.className = "info";
+            messageEl.style.display = "block";
+            
+            google.script.run
+                .withSuccessHandler(function(result) {
+                    messageEl.innerHTML = result;
+                    messageEl.className = "success";
+                    // Reload data after creating test data
+                    setTimeout(loadRequests, 1000);
+                })
+                .withFailureHandler(function(error) {
+                    messageEl.innerHTML = "Error creating test data: " + error;
+                    messageEl.className = "error";
+                })
+                .createTestData();
+        }
+        
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById("refreshBtn").addEventListener("click", loadRequests);
             document.getElementById("testConnectionBtn").addEventListener("click", testConnection);
+            document.getElementById("createTestDataBtn").addEventListener("click", createTestData);
             document.getElementById("applyFilters").addEventListener("click", applyFilters);
             document.getElementById("clearFilters").addEventListener("click", clearFilters);
             loadRequests();
@@ -627,10 +680,6 @@
             document.getElementById('pocMessageModal').style.display = 'none';
         }
         function sendPocMessage() {
-        function handlePush(id, email) {
-            alert('Push triggered for ID: ' + id + ', Email: ' + email);
-            // Add your push logic here
-        }
             var message = document.getElementById('pocMessageText').value;
             if (!message.trim()) {
                 alert('Message cannot be empty.');
