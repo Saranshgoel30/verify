@@ -167,8 +167,10 @@ function verifyAndSubmit(email, otp, fullName, rollNumber, pocName, studentMessa
     var pocsData = pocsSheet.getDataRange().getValues();
     var pocEmail = "";
     for (var i = 1; i < pocsData.length; i++) {
-        if (pocsData[i][0] && pocsData[i][0].toLowerCase().trim() === pocName.toLowerCase().trim()) {
-            pocEmail = pocsData[i][2]; // FIX: Get PoC Email from Column C
+        // FIX: Match pocName against the PoC Name column (D, index 3)
+        // and get the PoC's email from column E (index 4).
+        if (pocsData[i][3] && typeof pocsData[i][3] === 'string' && pocsData[i][3].toLowerCase().trim() === pocName.toLowerCase().trim()) {
+            pocEmail = pocsData[i][4]; // PoC Email is in Column E
             break;
         }
     }
@@ -221,14 +223,11 @@ function sendOTPEmail(email, studentName, otp) {
 function sendNewRequestEmail(studentName, studentEmail, pocName, studentMessage) {
   try {
     var subject = "New Verification Request from " + studentName;
-    var body = "A new verification request has been submitted by " + studentName + " (" + studentEmail + ").\n\n";
+    var message = "A new verification request has been submitted by " + studentName + " (" + studentEmail + ").";
     if (studentMessage) {
-      body += "Message from student: " + studentMessage + "\n\n";
+      message += "\n\nMessage from student: " + studentMessage;
     }
-    body += "Please visit the PoC Dashboard to review this request.";
     
-    // This is a placeholder. You need a way to get the PoC's email address.
-    // Assuming you have a "POCs" sheet with names and emails.
     var ss = getSpreadsheet_();
     var pocsSheet = ss.getSheetByName("pocs");
     if (!pocsSheet) {
@@ -239,15 +238,17 @@ function sendNewRequestEmail(studentName, studentEmail, pocName, studentMessage)
     var pocsData = pocsSheet.getDataRange().getValues();
     var pocEmail = "";
     for (var i = 1; i < pocsData.length; i++) {
-      // Assuming PoC Name is in the first column (index 0) and Email in the third (index 2)
-      if (pocsData[i][0] && pocsData[i][0].toLowerCase().trim() === pocName.toLowerCase().trim()) {
-        pocEmail = pocsData[i][2]; // Assuming email is in the 3rd column
+      // FIX: Match pocName against the PoC Name column (D, index 3)
+      // and get the PoC's email from column E (index 4).
+      if (pocsData[i][3] && typeof pocsData[i][3] === 'string' && pocsData[i][3].toLowerCase().trim() === pocName.toLowerCase().trim()) {
+        pocEmail = pocsData[i][4]; // PoC Email is in Column E
         break;
       }
     }
 
     if (pocEmail) {
-      MailApp.sendEmail(pocEmail, subject, body);
+      // Use the modern sendEmailToPOC function
+      sendEmailToPOC(pocEmail, pocName, studentName, studentEmail, subject, message);
     } else {
       Logger.log("sendNewRequestEmail Error: PoC Email not found for PoC Name: " + pocName);
     }

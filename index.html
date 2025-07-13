@@ -193,10 +193,6 @@
                     <input type="text" id="rollNumber" placeholder="Your Roll Number" readonly>
                 </div>
                 <div class="form-group">
-                    <label for="pocName">PoC Name</label>
-                    <input type="text" id="pocName" placeholder="e.g., Prof. XYZ" readonly>
-                </div>
-                <div class="form-group">
                     <label for="studentMessage">Message for PoC (Optional)</label>
                     <textarea id="studentMessage" placeholder="Enter a brief message for your PoC..."></textarea>
                 </div>
@@ -248,7 +244,6 @@
                     document.getElementById('userEmail').textContent = currentEmail;
                     document.getElementById('fullName').value = response.studentName || '';
                     document.getElementById('rollNumber').value = response.rollNumber || '';
-                    document.getElementById('pocName').value = response.pocName || '';
                     showStep('step2');
                     showMessage("OTP sent to your email. Please confirm your details below.", "success");
                 } else {
@@ -273,7 +268,6 @@
 
         var fullName = document.getElementById("fullName").value;
         var rollNumber = document.getElementById("rollNumber").value;
-        var pocName = document.getElementById("pocName").value;
         var studentMessage = document.getElementById("studentMessage").value;
 
         if (!otp) { // Only check for OTP now
@@ -302,7 +296,7 @@
                 submitBtn.innerHTML = "Verify & Submit";
                 showMessage("An error occurred: " + error.message, "error");
             })
-            .verifyAndSubmit(currentEmail, otp, fullName, rollNumber, pocName, studentMessage);
+            .verifyAndSubmit(currentEmail, otp, fullName, rollNumber, studentMessage);
     }
 
     function resendOTP() {
