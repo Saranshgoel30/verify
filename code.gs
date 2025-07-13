@@ -212,13 +212,10 @@ function verifyAndSubmit(email, otp, fullName, rollNumber, pocName, studentMessa
 }
 
 function sendOTPEmail(email, studentName, otp) {
-  try {
-    var subject = "Your Verification OTP";
-    var body = "Dear " + studentName + ",\n\nYour OTP for student verification is: " + otp + "\n\nThis OTP is valid for 10 minutes.\n\nThank you,\nPlaceCom";
-    MailApp.sendEmail(email, subject, body);
-  } catch (e) {
-    Logger.log("sendOTPEmail Error: " + e.toString());
-  }
+  var subject = "Your Verification OTP";
+  var message = "Your OTP for student verification is: " + otp + ". This OTP is valid for 10 minutes.";
+  // Using the enhanced email function for consistency and better formatting
+  sendEmailToStudent(email, studentName, subject, message);
 }
 
 function sendNewRequestEmail(studentName, studentEmail, pocName, studentMessage) {
