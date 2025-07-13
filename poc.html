@@ -437,14 +437,14 @@
                 tableHtml += "<td>" + (row[6] || 'Pending') + "</td>";
                 tableHtml += "<td>" + (row[7] || '-') + "</td>";
                 tableHtml += "<td class='action-cell'>" +
-                    "<button class='btn-view-message' onclick='viewStudentMessage(" + JSON.stringify(row[7] || '-') + ")'>View Student Message</button>" +
-                    "<button class='btn-poc-message' onclick='openPocMessageModal(" + row[1] + ", " + JSON.stringify(row[3]) + ")'>Message from PoC</button>" +
+                    "<button class='btn-view-message' onclick=\"viewStudentMessage('" + String(row[7] || '-').replace(/'/g, "\\'") + "')\">View Student Message</button>" +
+                    "<button class='btn-poc-message' onclick=\"openPocMessageModal('" + String(row[1]).replace(/'/g, "\\'") + "', '" + String(row[3]).replace(/'/g, "\\'") + "')\">Message from PoC</button>" +
                     "<select id='status-" + row[1] + "' class='status-select'>" +
                         "<option value='Pending'" + ((row[6]||'Pending') === "Pending" ? " selected" : "") + ">Pending</option>" +
                         "<option value='Approved'" + ((row[6]||'Pending') === "Approved" ? " selected" : "") + ">Approved</option>" +
                         "<option value='Rejected'" + ((row[6]||'Pending') === "Rejected" ? " selected" : "") + ">Rejected</option>" +
                     "</select>" +
-                    "<button class='btn-update' onclick='handleUpdateRequestStatus(" + row[1] + ", " + JSON.stringify(row[3]) + ")'>Update</button>" +
+                    "<button class='btn-update' onclick=\"handleUpdateRequestStatus('" + String(row[1]).replace(/'/g, "\\'") + "', '" + String(row[3]).replace(/'/g, "\\'") + "')\">Update</button>" +
                 "</td>";
                 tableHtml += "</tr>";
             });
@@ -459,6 +459,7 @@
             
             google.script.run
                 .withSuccessHandler(function(data) {
+                    console.log('Received data from server:', data); // Debug log
                     if (!Array.isArray(data)) {
                         document.getElementById("requests").innerHTML = "<div class='no-data'>Invalid data received from server.</div>";
                         return;
