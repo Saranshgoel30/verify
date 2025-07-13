@@ -5,148 +5,152 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="UTF-8">
-    <title>Superset Verification System</title>
-    <!-- Use only system fonts for compatibility -->
+    <title>Student Verification System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
-            background: #283593;
-            background: linear-gradient(135deg, #283593 0%, #1a237e 100%);
-            min-height: 100vh;
+            font-family: 'Inter', Arial, Helvetica, sans-serif;
+            background-color: #f0f2f5;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-            position: relative;
-            overflow-y: auto;
-            font-family: Arial, Helvetica, sans-serif; /* fallback only */
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
         }
         .container {
-            position: relative;
-            z-index: 1;
             width: 100%;
-            max-width: 450px;
+            max-width: 480px;
+            padding: 20px;
         }
         .card {
-            background-color: #fff;
-            border-radius: 16px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.07);
-            padding: 40px 30px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            padding: 35px 40px;
             width: 100%;
-            position: relative;
-            overflow: hidden;
+            box-sizing: border-box;
         }
         .card-top {
-            width: 100%;
-            height: 5px;
-            background: #f72585;
-            background: linear-gradient(90deg, #f72585, #1a237e);
-            position: absolute;
-            top: 0; left: 0;
-        }
-        .logo {
             text-align: center;
             margin-bottom: 30px;
         }
         h1 {
-            color: #2b2d42;
-            margin-bottom: 25px;
+            color: #1c2b4b;
+            margin: 20px 0 10px;
             text-align: center;
-            font-size: 24px;
-            font-weight: bold;
+            font-size: 26px;
+            font-weight: 700;
+        }
+        p {
+            color: #555;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 15px;
         }
         .form-group {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         label {
             display: block;
-            margin-bottom: 10px;
-            font-weight: bold;
-            color: #2b2d42;
-            font-size: 15px;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
         }
         input[type="email"], input[type="text"], textarea {
             width: 100%;
-            padding: 14px 16px;
-            border: 1px solid #e1e5ee;
+            padding: 12px 15px;
+            border: 1px solid #dbe1e8;
             border-radius: 8px;
             font-size: 15px;
-            background-color: #f8f9fa;
+            background-color: #f9fafb;
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
         input[type="email"]:focus, input[type="text"]:focus, textarea:focus {
-            border-color: #1a237e;
+            border-color: #4a69ff;
+            box-shadow: 0 0 0 3px rgba(74, 105, 255, 0.1);
             outline: none;
         }
+        textarea {
+            min-height: 90px;
+            resize: vertical;
+        }
         button {
-            background: #1a237e;
+            background: linear-gradient(90deg, #4a69ff, #6b8bff);
             color: #fff;
             border: none;
             border-radius: 8px;
             padding: 14px 20px;
             font-size: 16px;
-            font-weight: bold;
+            font-weight: 600;
             cursor: pointer;
             width: 100%;
+            transition: background 0.3s;
         }
         button:hover {
-            background: #0d1333;
+            background: linear-gradient(90deg, #3a5ae0, #5a7aff);
         }
         button[disabled] {
-            background: #c4c4c4;
+            background: #c0c8d1;
             cursor: not-allowed;
         }
         #message {
-            padding: 15px;
-            margin: 20px 0;
+            padding: 12px 15px;
+            margin-top: 20px;
             border-radius: 8px;
             text-align: center;
-            font-weight: bold;
+            font-weight: 500;
             font-size: 14px;
+            display: none;
         }
         .success {
-            background-color: #e3f7fd;
-            color: #0077b6;
-            border-left: 4px solid #0077b6;
+            background-color: #e6f7f0;
+            color: #00875a;
+            display: block;
         }
         .error {
-            background-color: #fde3f0;
-            color: #f72585;
-            border-left: 4px solid #f72585;
+            background-color: #fdecea;
+            color: #de350b;
+            display: block;
         }
         .info {
-            background-color: #e3e7fd;
-            color: #1a237e;
-            border-radius: 8px;
-            margin-top: 25px;
-            padding: 15px;
-            font-size: 14px;
-            line-height: 1.6;
+            background-color: #e9f2ff;
+            color: #4a69ff;
+            display: block;
         }
         .step { display: none; }
         .step.active { display: block; }
         .otp-input {
             text-align: center;
-            font-size: 20px;
-            letter-spacing: 2px;
-            font-weight: bold;
+            font-size: 22px;
+            letter-spacing: 8px;
+            font-weight: 700;
+            padding: 10px;
+        }
+        .resend-link-container {
+            text-align: center;
+            margin-top: 20px;
         }
         .resend-link {
-            display: block;
-            text-align: center;
-            margin-top: 15px;
-            color: #1a237e;
+            color: #4a69ff;
             text-decoration: none;
-            font-weight: bold;
+            font-weight: 600;
             font-size: 14px;
             cursor: pointer;
         }
         .resend-link:hover {
-            color: #0d1333;
             text-decoration: underline;
         }
+        h2 {
+            font-size: 22px;
+            text-align: center;
+            color: #00875a;
+        }
         @media (max-width: 480px) {
-            .card { padding: 30px 20px; }
-            h1 { font-size: 22px; }
-            input[type="email"], input[type="text"], button { padding: 12px 15px; }
+            .card { padding: 30px 25px; }
+            h1 { font-size: 24px; }
         }
     </style>
 </head>
@@ -154,16 +158,15 @@
     <div class="container">
         <div class="card">
             <div class="card-top">
-                <img src="https://lh3.googleusercontent.com/d/1x_S4_2s4v_G-0c_E-2b2b_8a_9c_7d_F" alt="Logo" class="logo">
                 <h1>Student Verification</h1>
             </div>
 
             <!-- Step 1: Email Input -->
             <div id="step1" class="step active">
-                <p>Enter your IIIT-D email to receive a verification OTP.</p>
+                <p>Enter your Ashoka University email to receive a verification OTP.</p>
                 <div class="form-group">
                     <label for="email">Email Address</label>
-                    <input type="email" id="email" placeholder="name@iiitd.ac.in">
+                    <input type="email" id="email" placeholder="firstname.lastname_batch@ashoka.edu.in">
                 </div>
                 <button id="otpBtn" onclick="requestOTP()">Get OTP</button>
             </div>
@@ -232,21 +235,22 @@
         otpBtn.innerHTML = "Sending OTP...";
         google.script.run
             .withSuccessHandler(function(response) {
-                if (response && response.success) {
-                    showStep('otpStep');
-                    showMessage("OTP sent to your email", "success");
-                } else {
-                    showMessage(response && response.message ? response.message : "Unknown error", "error");
-                }
-                otpBtn.disabled = false;
-                otpBtn.innerHTML = "Send OTP";
                 isSubmitting = false;
+                otpBtn.disabled = false;
+                otpBtn.innerHTML = "Get OTP";
+                if (response && response.success) {
+                    document.getElementById('userEmail').textContent = currentEmail;
+                    showStep('step2');
+                    showMessage("OTP sent to your email.", "success");
+                } else {
+                    showMessage(response && response.message ? response.message : "An unknown error occurred.", "error");
+                }
             })
             .withFailureHandler(function(error) {
-                showMessage("Error: " + error, "error");
-                otpBtn.disabled = false;
-                otpBtn.innerHTML = "Send OTP";
                 isSubmitting = false;
+                otpBtn.disabled = false;
+                otpBtn.innerHTML = "Get OTP";
+                showMessage("An error occurred: " + error.message, "error");
             })
             .generateAndSendOTP(email);
     }
@@ -296,20 +300,23 @@
         if (isSubmitting) return;
         isSubmitting = true;
         var resendLink = document.getElementById("resendLink");
+        resendLink.style.pointerEvents = 'none';
         resendLink.innerHTML = "Sending...";
         google.script.run
             .withSuccessHandler(function(response) {
                 if (response && response.success) {
-                    showMessage("OTP resent to your email", "success");
+                    showMessage("OTP resent to your email.", "success");
                 } else {
-                    showMessage(response && response.message ? response.message : "Unknown error", "error");
+                    showMessage(response && response.message ? response.message : "Unknown error.", "error");
                 }
-                resendLink.innerHTML = "Didn't receive the code? Resend OTP";
+                resendLink.innerHTML = "Resend OTP";
+                resendLink.style.pointerEvents = 'auto';
                 isSubmitting = false;
             })
             .withFailureHandler(function(error) {
-                showMessage("Error: " + error, "error");
-                resendLink.innerHTML = "Didn't receive the code? Resend OTP";
+                showMessage("Error: " + error.message, "error");
+                resendLink.innerHTML = "Resend OTP";
+                resendLink.style.pointerEvents = 'auto';
                 isSubmitting = false;
             })
             .generateAndSendOTP(currentEmail);
@@ -318,7 +325,9 @@
         var msgDiv = document.getElementById("message");
         msgDiv.innerHTML = message;
         msgDiv.className = type;
+        msgDiv.style.display = 'block';
         setTimeout(function() {
+            msgDiv.style.display = 'none';
             msgDiv.innerHTML = "";
             msgDiv.className = "";
         }, 5000);

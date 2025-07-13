@@ -27,6 +27,14 @@ function getSpreadsheet_() {
 
 function generateAndSendOTP(email) {
   try {
+    // Basic email validation
+    if (!email || email.indexOf('@ashoka.edu.in') === -1) {
+      return {
+        success: false,
+        message: "Please use a valid Ashoka University email address."
+      };
+    }
+
     var ss = getSpreadsheet_();
     var requestSheet = ss.getSheetByName("Request");
     var pocsSheet = ss.getSheetByName("pocs");
@@ -41,7 +49,7 @@ function generateAndSendOTP(email) {
     // Check if email already has pending request
     var pendingData = pendingSheet.getDataRange().getValues();
     for (var i = 1; i < pendingData.length; i++) {
-      if (pendingData[i][3] === email) {
+      if (pendingData[i][3] === email && pendingData[i][5] === 'Pending') {
         return {
           success: false,
           message: "You already have a pending request. Please wait for approval."
@@ -52,10 +60,12 @@ function generateAndSendOTP(email) {
     // Check if email exists in POCs database
     var pocsData = pocsSheet.getDataRange().getValues();
     var emailInDatabase = false;
+    var studentName = "";
     
     for (var i = 1; i < pocsData.length; i++) {
       if (pocsData[i][2] === email) {
         emailInDatabase = true;
+        studentName = pocsData[i][1];
         break;
       }
     }
@@ -63,7 +73,7 @@ function generateAndSendOTP(email) {
     if (!emailInDatabase) {
       return {
         success: false,
-        message: "Email ID not found in our database. Please contact the administrator."
+        message: "Your email ID was not found in our database. Please contact the administrator."
       };
     }
     
@@ -80,20 +90,15 @@ function generateAndSendOTP(email) {
       }
     }
     
+    var expiryTime = new Date(new Date().getTime() + 10 * 60 * 1000); // OTP expires in 10 minutes
+
     if (rowFound > 0) {
       requestSheet.getRange(rowFound, 2).setValue(otp);
+      requestSheet.getRange(rowFound, 3).setValue(expiryTime);
     } else {
-      requestSheet.appendRow([email, otp]);
+      requestSheet.appendRow([email, otp, expiryTime]);
     }
     
-    // Get student name for email
-    var studentName = "";
-    for (var i = 1; i < pocsData.length; i++) {
-      if (pocsData[i][2] === email) {
-        studentName = pocsData[i][1];
-        break;
-      }
-    }
     sendOTPEmail(email, studentName, otp);
     
     return { 
@@ -101,6 +106,7 @@ function generateAndSendOTP(email) {
       message: "OTP sent successfully"
     };
   } catch (e) {
+    Logger.log("generateAndSendOTP Error: " + e.toString());
     return {
       success: false,
       message: "A system error occurred. Please try again later or contact admin."
@@ -119,17 +125,23 @@ function verifyAndSubmit(email, otp, fullName, rollNumber, pocName, studentMessa
     var requestData = requestSheet.getDataRange().getValues();
     var rowFound = -1;
     var storedOTP = "";
+    var expiryTime = null;
 
-    for (var i = 0; i < requestData.length; i++) {
+    for (var i = 1; i < requestData.length; i++) { // Start from 1 to skip header
       if (requestData[i][0] === email) {
         rowFound = i + 1;
         storedOTP = requestData[i][1].toString();
+        expiryTime = new Date(requestData[i][2]);
         break;
       }
     }
 
     if (rowFound < 0) {
       return { success: false, message: "Email not found. Please request a new OTP." };
+    }
+
+    if (new Date() > expiryTime) {
+      return { success: false, message: "Your OTP has expired. Please request a new one." };
     }
 
     if (storedOTP !== otp) {
@@ -316,6 +328,49 @@ function updatePocMessage(id, message) {
   }
 }
 
+function updateRequestStatus(id, status, pocMessage) {
+  try {
+    var ss = getSpreadsheet_();
+    var sheet = ss.getSheetByName("Pending");
+    if (!sheet) {
+      throw new Error("Pending sheet not found.");
+    }
+    var data = sheet.getDataRange().getValues();
+    var requestRow = -1;
+
+    for (var i = 1; i < data.length; i++) {
+      var sheetDate = new Date(data[i][0]);
+      var idDate = new Date(id);
+      if (sheetDate.getTime() === idDate.getTime()) {
+        requestRow = i + 1;
+        break;
+      }
+    }
+
+    if (requestRow !== -1) {
+      sheet.getRange(requestRow, 6).setValue(status); // Update status
+      // Only update the message if it's not null.
+      // This prevents overwriting an existing message when just changing status.
+      if (pocMessage !== null && pocMessage !== undefined) {
+        sheet.getRange(requestRow, 7).setValue(pocMessage); // Update PoC message
+      }
+      
+      // Send notification email to student
+      var studentEmail = sheet.getRange(requestRow, 4).getValue();
+      var studentName = sheet.getRange(requestRow, 2).getValue();
+      var finalPocMessage = (pocMessage !== null && pocMessage !== undefined) ? pocMessage : sheet.getRange(requestRow, 7).getValue();
+
+      sendApprovalEmail(studentEmail, studentName, status, finalPocMessage);
+      
+      return { success: true, message: "Status updated successfully." };
+    } else {
+      return { success: false, message: "Request not found." };
+    }
+  } catch (e) {
+    return { success: false, message: "Error updating status: " + e.message };
+  }
+}
+
 function bulkUpdateRequestStatus(ids, status, message) {
   try {
     var ss = getSpreadsheet_();
@@ -337,11 +392,14 @@ function bulkUpdateRequestStatus(ids, status, message) {
       if (idMap[sheetDate.getTime()]) {
         var requestRow = i + 1;
         sheet.getRange(requestRow, 6).setValue(status); // Update status
-        sheet.getRange(requestRow, 7).setValue(message); // Update PoC message
+        if (message) {
+            sheet.getRange(requestRow, 7).setValue(message); // Update PoC message
+        }
         
         var studentEmail = sheet.getRange(requestRow, 4).getValue();
         var studentName = sheet.getRange(requestRow, 2).getValue();
-        sendApprovalEmail(studentEmail, studentName, status, message);
+        var finalMessage = message || sheet.getRange(requestRow, 7).getValue();
+        sendApprovalEmail(studentEmail, studentName, status, finalMessage);
         
         updatedCount++;
       }
