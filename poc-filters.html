@@ -18,45 +18,56 @@
 
 <script>
     function extractPocNames(data) {
-        const pocs = new Set();
-        data.forEach(row => {
+        var pocs = {}; // Use an object to avoid duplicates
+        data.forEach(function(row) {
+            // SCHEMA: Pending[4] is POC Name
             if (row[4]) {
-                pocs.add(row[4]);
+                pocs[row[4]] = true;
             }
         });
-        return Array.from(pocs).sort();
+        return Object.keys(pocs).sort();
     }
     
     function populatePocFilter(pocs) {
-        const filterSelect = document.getElementById("pocFilter");
+        var filterSelect = document.getElementById("pocFilter");
+        // Save the current value to reapply it after repopulating
+        var currentValue = filterSelect.value;
         filterSelect.innerHTML = '<option value="">All POCs</option>';
         
-        pocs.forEach(poc => {
-            const option = document.createElement('option');
+        pocs.forEach(function(poc) {
+            var option = document.createElement('option');
             option.value = poc;
             option.textContent = poc;
             filterSelect.appendChild(option);
         });
+        filterSelect.value = currentValue;
     }
     
-    function applyFilters() {
-        const pocFilter = document.getElementById("pocFilter").value;
+    function applyAllFilters(data) {
+        var pocFilter = document.getElementById("pocFilter").value;
         
-        let filteredData = [...allRequests];
+        var filteredData = data;
         
         // Apply PoC filter
         if (pocFilter) {
-            filteredData = filteredData.filter(row => row[4] === pocFilter);
+            filteredData = filteredData.filter(function(row) {
+                // SCHEMA: Pending[4] is POC Name
+                return row[4] === pocFilter;
+            });
         }
         
+        return filteredData;
+    }
+
+    function applyFilters() {
+        var filteredData = applyAllFilters(allRequests);
         displayRequests(filteredData);
-        updateStats(filteredData);
+        // Note: updateStats should reflect the total counts, not filtered counts.
+        // The main `loadRequests` function already handles calling updateStats correctly.
     }
     
     function clearFilters() {
         document.getElementById("pocFilter").value = "";
-        
         displayRequests(allRequests);
-        updateStats(allRequests);
     }
 </script>

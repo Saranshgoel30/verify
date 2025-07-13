@@ -49,7 +49,8 @@ function generateAndSendOTP(email) {
     // Check if email already has pending request
     var pendingData = pendingSheet.getDataRange().getValues();
     for (var i = 1; i < pendingData.length; i++) {
-      if (pendingData[i][3] === email && pendingData[i][5] === 'Pending') {
+      // SCHEMA: Pending[3] is Email, Pending[6] is Status
+      if (pendingData[i][3] === email && pendingData[i][6] === 'Pending') {
         return {
           success: false,
           message: "You already have a pending request. Please wait for approval."
@@ -65,11 +66,13 @@ function generateAndSendOTP(email) {
     var pocName = "";
     
     for (var i = 1; i < pocsData.length; i++) { 
-      if (pocsData[i][2] === email) { // Column C: Email
+      // SCHEMA: pocs[2] is student Email
+      if (pocsData[i][2] === email) {
         emailInDatabase = true;
-        rollNumber = pocsData[i][0]; // Column A: ID (Roll Number)
-        studentName = pocsData[i][1]; // Column B: Name
-        pocName = pocsData[i][3];     // Column D: POC Name
+        // SCHEMA: pocs[0]=ID, pocs[1]=Name, pocs[3]=POC Name
+        rollNumber = pocsData[i][0]; 
+        studentName = pocsData[i][1]; 
+        pocName = pocsData[i][3];     
         break;
       }
     }
@@ -136,6 +139,7 @@ function verifyAndSubmit(email, otp, fullName, rollNumber, pocName, studentMessa
     var expiryTime = null;
 
     for (var i = 1; i < requestData.length; i++) { // Start from 1 to skip header
+      // SCHEMA: Request[0]=Email, Request[1]=OTP, Request[2]=Date
       if (requestData[i][0] === email) {
         rowFound = i + 1;
         storedOTP = requestData[i][1].toString();
@@ -163,35 +167,33 @@ function verifyAndSubmit(email, otp, fullName, rollNumber, pocName, studentMessa
       return { success: false, message: "System error: Pending or PoCs sheet not found." };
     }
 
-    // Find PoC Email
+    // Find PoC Email by looking up the student's email
     var pocsData = pocsSheet.getDataRange().getValues();
     var pocEmail = "";
     for (var i = 1; i < pocsData.length; i++) {
-        // FIX: Match pocName against the PoC Name column (D, index 3)
-        // and get the PoC's email from column E (index 4).
-        if (pocsData[i][3] && typeof pocsData[i][3] === 'string' && pocsData[i][3].toLowerCase().trim() === pocName.toLowerCase().trim()) {
+        // SCHEMA: pocs[2] is student Email, pocs[4] is POC Mail ID
+        if (pocsData[i][2] && typeof pocsData[i][2] === 'string' && pocsData[i][2].toLowerCase().trim() === email.toLowerCase().trim()) {
             pocEmail = pocsData[i][4]; // PoC Email is in Column E
             break;
         }
     }
 
     if (!pocEmail) {
-        Logger.log("verifyAndSubmit: Could not find email for PoC: " + pocName);
-        // Decide if you want to fail here or proceed without the email
+        Logger.log("verifyAndSubmit: Could not find PoC email for student: " + email);
+        return { success: false, message: "System error: Your assigned PoC was not found. Please contact the administrator." };
     }
 
     var timestamp = new Date();
-    // FIX: Added pocEmail to the pending request row
+    // SCHEMA: Pending -> [Date, ID, Name, Email, POC, POC Mail ID, Status, Message]
     var newRequest = [
       timestamp,
-      fullName,
       rollNumber,
+      fullName,
       email,
       pocName,
-      pocEmail, // PoC Email
+      pocEmail,
       "Pending",
-      "", // POC Message
-      studentMessage || "" // Student Message
+      studentMessage || "" // Student's message
     ];
     pendingSheet.appendRow(newRequest);
 
@@ -238,9 +240,8 @@ function sendNewRequestEmail(studentName, studentEmail, pocName, studentMessage)
     var pocsData = pocsSheet.getDataRange().getValues();
     var pocEmail = "";
     for (var i = 1; i < pocsData.length; i++) {
-      // FIX: Match pocName against the PoC Name column (D, index 3)
-      // and get the PoC's email from column E (index 4).
-      if (pocsData[i][3] && typeof pocsData[i][3] === 'string' && pocsData[i][3].toLowerCase().trim() === pocName.toLowerCase().trim()) {
+      // SCHEMA: pocs[2] is student Email, pocs[4] is POC Mail ID
+      if (pocsData[i][2] && typeof pocsData[i][2] === 'string' && pocsData[i][2].toLowerCase().trim() === studentEmail.toLowerCase().trim()) {
         pocEmail = pocsData[i][4]; // PoC Email is in Column E
         break;
       }
@@ -296,13 +297,12 @@ function updateStatus(id, email, status, message) {
   var rowFound = false;
 
   for (var i = 1; i < pendingData.length; i++) {
-    // Match on email (student) and timestamp (id)
+    // SCHEMA: Pending[3] is Email, Pending[0] is Date of Request
     if (pendingData[i][3] == email && new Date(pendingData[i][0]).getTime() == new Date(id).getTime()) {
       var rowData = pendingData[i].slice();
-      var studentName = rowData[1];
-      var studentEmail = rowData[3];
-      var pocName = rowData[4];
-      var pocEmail = rowData[5]; // Now correctly contains the PoC email
+      var studentName = rowData[2]; // Pending[2] is Name
+      var studentEmail = rowData[3]; // Pending[3] is Email
+      var studentMessage = rowData[7]; // Pending[7] is Student Message
 
       var targetSheet;
       if (status === "Approved") {
@@ -312,23 +312,21 @@ function updateStatus(id, email, status, message) {
       }
 
       if (targetSheet) {
+        // SCHEMA: Approved/Rejected -> [Req Date, Action Date, ID, Name, Email, POC, POC Mail, Status, Student Msg, POC Msg]
         var newRow = [
-          rowData[0], // Original Timestamp
-          new Date(), // Action Timestamp
-          rowData[1], // Full Name
-          rowData[2], // Roll Number
+          rowData[0], // Date of Request
+          new Date(), // Date Approved/Rejected
+          rowData[1], // ID
+          rowData[2], // Name
           rowData[3], // Email
-          rowData[4], // PoC Name
-          message || rowData[7], // PoC Message
-          status
+          rowData[4], // POC
+          rowData[5], // POC Mail ID
+          status,     // Status
+          studentMessage, // Student Message
+          message || ""   // Note from POC
         ];
         targetSheet.appendRow(newRow);
         
-        var emailSubject = "Your verification request has been " + status;
-        var emailBody = "Dear " + studentName + ",\n\nYour verification request has been " + status.toLowerCase() + ".";
-        if (message) {
-          emailBody += "\n\nMessage from your verifier: " + message;
-        }
         sendApprovalEmail(studentEmail, studentName, status, message);
       }
       
@@ -353,6 +351,7 @@ function updatePocMessage(id, message) {
     var requestRow = -1;
 
     for (var i = 1; i < data.length; i++) {
+      // SCHEMA: Pending[0] is Date of Request
       var sheetDate = new Date(data[i][0]);
       var idDate = new Date(id);
       if (sheetDate.getTime() === idDate.getTime()) {
@@ -362,8 +361,13 @@ function updatePocMessage(id, message) {
     }
 
     if (requestRow !== -1) {
-      sheet.getRange(requestRow, 8).setValue(message); // PoC message is now in column H (index 7)
-      return { success: true, message: "Message updated successfully." };
+      // This function is intended to add a note from the PoC.
+      // Per the schema, the "Pending" sheet does not have a "Note from POC" column.
+      // This action is now handled correctly by the `updateStatus` function, which adds the note
+      // when moving the request to the Approved/Rejected sheet.
+      // This function is therefore redundant and potentially confusing.
+      // Returning a message to indicate this.
+      return { success: false, message: "PoC messages can only be added upon approval or rejection." };
     } else {
       return { success: false, message: "Request not found." };
     }
@@ -379,37 +383,12 @@ function updateRequestStatus(id, status, pocMessage) {
     if (!sheet) {
       throw new Error("Pending sheet not found.");
     }
-    var data = sheet.getDataRange().getValues();
-    var requestRow = -1;
-
-    for (var i = 1; i < data.length; i++) {
-      var sheetDate = new Date(data[i][0]);
-      var idDate = new Date(id);
-      if (sheetDate.getTime() === idDate.getTime()) {
-        requestRow = i + 1;
-        break;
-      }
-    }
-
-    if (requestRow !== -1) {
-      sheet.getRange(requestRow, 7).setValue(status); // Status is in column G (index 6)
-      // Only update the message if it's not null.
-      // This prevents overwriting an existing message when just changing status.
-      if (pocMessage !== null && pocMessage !== undefined) {
-        sheet.getRange(requestRow, 8).setValue(pocMessage); // PoC message is in column H (index 7)
-      }
-      
-      // Send notification email to student
-      var studentEmail = sheet.getRange(requestRow, 4).getValue();
-      var studentName = sheet.getRange(requestRow, 2).getValue();
-      var finalPocMessage = (pocMessage !== null && pocMessage !== undefined) ? pocMessage : sheet.getRange(requestRow, 8).getValue();
-
-      sendApprovalEmail(studentEmail, studentName, status, finalPocMessage);
-      
-      return { success: true, message: "Status updated successfully." };
-    } else {
-      return { success: false, message: "Request not found." };
-    }
+    // This function is deprecated by the more robust `updateStatus` function.
+    // It is not aligned with the new sheet structure and workflow.
+    // It is recommended to remove calls to this function from the client-side.
+    // For now, it will do nothing to prevent data corruption.
+    Logger.log("Deprecated function updateRequestStatus called. No action taken.");
+    return { success: false, message: "This function is deprecated. Please use the main dashboard actions." };
   } catch (e) {
     return { success: false, message: "Error updating status: " + e.message };
   }
@@ -418,12 +397,17 @@ function updateRequestStatus(id, status, pocMessage) {
 function bulkUpdateRequestStatus(ids, status, message) {
   try {
     var ss = getSpreadsheet_();
-    var sheet = ss.getSheetByName("Pending");
-    if (!sheet) {
-      throw new Error("Pending sheet not found.");
+    var pendingSheet = ss.getSheetByName("Pending");
+    var approvedSheet = ss.getSheetByName("Approved");
+    var rejectedSheet = ss.getSheetByName("Rejected");
+
+    if (!pendingSheet || !approvedSheet || !rejectedSheet) {
+      throw new Error("One or more required sheets (Pending, Approved, Rejected) not found.");
     }
-    var data = sheet.getDataRange().getValues();
+    
+    var data = pendingSheet.getDataRange().getValues();
     var updatedCount = 0;
+    var rowsToDelete = [];
 
     // Create a map for faster lookups
     var idMap = {};
@@ -431,22 +415,53 @@ function bulkUpdateRequestStatus(ids, status, message) {
         idMap[new Date(ids[j]).getTime()] = true;
     }
 
+    // First, identify rows to move and prepare new rows
+    var newRows = [];
     for (var i = 1; i < data.length; i++) {
       var sheetDate = new Date(data[i][0]);
       if (idMap[sheetDate.getTime()]) {
-        var requestRow = i + 1;
-        sheet.getRange(requestRow, 7).setValue(status); // Update status in Col G
-        if (message) {
-            sheet.getRange(requestRow, 8).setValue(message); // Update PoC message in Col H
-        }
+        var rowData = data[i];
         
-        var studentEmail = sheet.getRange(requestRow, 4).getValue();
-        var studentName = sheet.getRange(requestRow, 2).getValue();
-        var finalMessage = message || sheet.getRange(requestRow, 7).getValue();
-        sendApprovalEmail(studentEmail, studentName, status, finalMessage);
+        var newRow = [
+          rowData[0], // Date of Request
+          new Date(), // Date Approved/Rejected
+          rowData[1], // ID
+          rowData[2], // Name
+          rowData[3], // Email
+          rowData[4], // POC
+          rowData[5], // POC Mail ID
+          status,     // Status
+          rowData[7], // Student Message
+          message || ""   // Note from POC
+        ];
+        newRows.push(newRow);
+
+        // Send notification email
+        var studentEmail = rowData[3];
+        var studentName = rowData[2];
+        sendApprovalEmail(studentEmail, studentName, status, message);
         
+        rowsToDelete.push(i + 1);
         updatedCount++;
       }
+    }
+
+    // Now, append the new rows to the correct sheet
+    if (newRows.length > 0) {
+      var targetSheet;
+      if (status === "Approved") {
+        targetSheet = approvedSheet;
+      } else if (status === "Rejected") {
+        targetSheet = rejectedSheet;
+      }
+      if (targetSheet) {
+        targetSheet.getRange(targetSheet.getLastRow() + 1, 1, newRows.length, newRows[0].length).setValues(newRows);
+      }
+    }
+
+    // Finally, delete the rows from the Pending sheet, from bottom to top
+    for (var k = rowsToDelete.length - 1; k >= 0; k--) {
+      pendingSheet.deleteRow(rowsToDelete[k]);
     }
 
     if (updatedCount > 0) {

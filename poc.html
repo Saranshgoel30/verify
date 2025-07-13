@@ -413,12 +413,11 @@
                         <tr>
                             <th><input type="checkbox" id="selectAll"></th>
                             <th>Date</th>
+                            <th>ID</th>
                             <th>Name</th>
                             <th>Email</th>
-                            <th>PoC Name</th>
+                            <th>POC</th>
                             <th>Student Message</th>
-                            <th>Status</th>
-                            <th>PoC Message</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -451,19 +450,17 @@
         var stats = { pending: 0, approved: 0, rejected: 0 };
 
         function updateStats(data) {
-            stats = data.reduce(function(acc, row) {
-                var status = row[6] || "Pending"; // FIX: Status is in column G (index 6)
-                if (status === "Pending") acc.pending++;
-                // The below are not technically needed if we only show pending, but good for future use
-                else if (status === "Approved") acc.approved++;
-                else if (status === "Rejected") acc.rejected++;
-                return acc;
-            }, { pending: 0, approved: 0, rejected: 0 });
-
-            document.getElementById('pending-count').textContent = stats.pending;
-            // These will be 0 if we only fetch pending, but we can keep them
-            document.getElementById('approved-count').textContent = stats.approved;
-            document.getElementById('rejected-count').textContent = stats.rejected;
+            // This function is now simplified as we only get pending requests.
+            // The approved/rejected counts will be fetched separately.
+            document.getElementById('pending-count').textContent = data.length;
+            
+            // Fetch approved/rejected counts from the server
+            google.script.run
+                .withSuccessHandler(function(counts) {
+                    document.getElementById('approved-count').textContent = counts.approved;
+                    document.getElementById('rejected-count').textContent = counts.rejected;
+                })
+                .getApprovedRejectedCounts();
         }
 
         function displayRequests(data) {
@@ -478,7 +475,9 @@
 
             data.forEach(function(row, index) {
                 var tr = document.createElement('tr');
-                var requestId = row[0]; // Assuming timestamp is the unique ID
+                // SCHEMA: Pending -> [Date, ID, Name, Email, POC, POC Mail ID, Status, Message]
+                var requestId = row[0]; // Date of Request is a good unique ID if precise enough
+                var studentEmail = row[3];
 
                 // Checkbox
                 var cellCheckbox = document.createElement('td');
@@ -486,60 +485,46 @@
                 checkbox.type = 'checkbox';
                 checkbox.className = 'row-checkbox';
                 checkbox.setAttribute('data-id', requestId);
+                checkbox.setAttribute('data-email', studentEmail);
                 cellCheckbox.appendChild(checkbox);
                 tr.appendChild(cellCheckbox);
 
-                // Date
-                var cellDate = document.createElement('td');
-                cellDate.textContent = new Date(requestId).toLocaleDateString();
-                tr.appendChild(cellDate);
-
-                // Name, Email, PoC Name (Indices: 1, 3, 4)
-                [1, 3, 4].forEach(function(i) {
+                // Date, ID, Name, Email, POC
+                [0, 1, 2, 3, 4].forEach(function(i) {
                     var cell = document.createElement('td');
-                    cell.textContent = row[i];
+                    if (i === 0) { // Format date
+                        cell.textContent = new Date(row[i]).toLocaleDateString();
+                    } else {
+                        cell.textContent = row[i];
+                    }
                     tr.appendChild(cell);
                 });
                 
-                // Student Message (Index 8)
+                // Student Message (Index 7)
                 var cellStudentMessage = document.createElement('td');
-                cellStudentMessage.textContent = row[8] || '-'; // FIX: Student message is at index 8
+                cellStudentMessage.textContent = row[7] || '-';
                 tr.appendChild(cellStudentMessage);
-
-                // Status (Index 6)
-                var cellStatus = document.createElement('td');
-                var statusSelect = document.createElement('select');
-                statusSelect.className = 'status-select';
-                statusSelect.setAttribute('data-id', requestId);
-                ['Pending', 'Approved', 'Rejected'].forEach(function(status) {
-                    var option = document.createElement('option');
-                    option.value = status;
-                    option.textContent = status;
-                    if (row[6] === status) option.selected = true; // FIX: Status is at index 6
-                    statusSelect.appendChild(option);
-                });
-                statusSelect.addEventListener('change', function(e) {
-                    updateStatus(e.target.getAttribute('data-id'), e.target.value);
-                });
-                cellStatus.appendChild(statusSelect);
-                tr.appendChild(cellStatus);
-
-                // PoC Message (Index 7)
-                var cellPocMessage = document.createElement('td');
-                var pocMessageText = row[7] || '-'; // FIX: PoC message is at index 7
-                cellPocMessage.id = 'poc-message-' + requestId;
-                cellPocMessage.textContent = pocMessageText;
-                tr.appendChild(cellPocMessage);
 
                 // Actions
                 var cellActions = document.createElement('td');
-                var messageButton = document.createElement('button');
-                messageButton.textContent = 'Message';
-                messageButton.className = 'btn-update';
-                messageButton.onclick = function() {
-                    openMessageModal(requestId, row[7] || ''); // FIX: PoC message is at index 7
+                cellActions.className = 'action-cell';
+
+                var approveButton = document.createElement('button');
+                approveButton.textContent = 'Approve';
+                approveButton.className = 'btn-approve';
+                approveButton.onclick = function() {
+                    updateRequest(requestId, studentEmail, 'Approved');
                 };
-                cellActions.appendChild(messageButton);
+
+                var rejectButton = document.createElement('button');
+                rejectButton.textContent = 'Reject';
+                rejectButton.className = 'btn-reject';
+                rejectButton.onclick = function() {
+                    updateRequest(requestId, studentEmail, 'Rejected');
+                };
+                
+                cellActions.appendChild(approveButton);
+                cellActions.appendChild(rejectButton);
                 tr.appendChild(cellActions);
 
                 tableBody.appendChild(tr);
@@ -553,14 +538,15 @@
             google.script.run
                 .withSuccessHandler(function(data) {
                     document.getElementById('loading').style.display = 'none';
-                    // Skip header row if present
-                    allRequests = data[0] && data[0][0] === 'Timestamp' ? data.slice(1) : data;
+                    // SCHEMA: The first row is headers.
+                    allRequests = data.length > 1 ? data.slice(1) : [];
                     
                     var pocNames = extractPocNames(allRequests);
                     populatePocFilter(pocNames);
                     
-                    displayRequests(allRequests);
-                    updateStats(allRequests);
+                    var filteredData = applyAllFilters(allRequests);
+                    displayRequests(filteredData);
+                    updateStats(allRequests); // Update stats based on all pending requests
                 })
                 .withFailureHandler(function(error) {
                     document.getElementById('loading').style.display = 'none';
@@ -569,25 +555,24 @@
                 .getPendingRequests();
         }
 
-        function updateStatus(id, status) {
-            // The prompt is removed as per user request to decouple message from status change.
-            // The message can be added/edited via the 'Message' button.
+        function updateRequest(id, email, status) {
+            var message = prompt("Enter an optional message for the student:");
+            if (message === null) { // User clicked cancel
+                return;
+            }
+
             document.getElementById('loading').style.display = 'block';
             google.script.run
                 .withSuccessHandler(function(response) {
                     document.getElementById('loading').style.display = 'none';
-                    if (response.success) {
-                        showMessage('Status updated successfully.', 'success');
-                        loadRequests(); // Refresh data
-                    } else {
-                        showMessage('Error: ' + response.message, 'error');
-                    }
+                    showMessage(response, 'success');
+                    loadRequests(); // Refresh data
                 })
                 .withFailureHandler(function(error) {
                     document.getElementById('loading').style.display = 'none';
                     showMessage('Error: ' + error.message, 'error');
                 })
-                .updateRequestStatus(id, status, null); // Pass null for message, so it's not updated
+                .updateStatus(id, email, status, message);
         }
 
         function openMessageModal(id, currentMessage) {
@@ -603,31 +588,32 @@
         function saveMessage() {
             var id = document.getElementById('modalRequestId').value;
             var message = document.getElementById('modalMessageText').value;
+            var email = allRequests.find(function(r) { return r[0] === id; })[3];
 
             closeModal();
             document.getElementById('loading').style.display = 'block';
 
+            // We now use updateStatus to add messages, which requires a status.
+            // This modal is now only for adding a note before approving/rejecting.
+            // Let's ask for the status change here.
+            var status = prompt("You are adding a message. Do you want to 'Approve' or 'Reject' this request? (Type 'Approve' or 'Reject')");
+            if (status !== 'Approved' && status !== 'Rejected') {
+                showMessage("Invalid action. Please use the Approve/Reject buttons.", "error");
+                document.getElementById('loading').style.display = 'none';
+                return;
+            }
+
             google.script.run
                 .withSuccessHandler(function(response) {
                     document.getElementById('loading').style.display = 'none';
-                    if (response.success) {
-                        showMessage('Message saved successfully.', 'success');
-                        // Update message in the table locally
-                        document.getElementById('poc-message-' + id).textContent = message || '-';
-                        // Also update the underlying data so the modal shows the new message if reopened
-                        var request = allRequests.find(function(r) { return r[0] === id; });
-                        if (request) {
-                            request[7] = message; // FIX: PoC message is at index 7
-                        }
-                    } else {
-                        showMessage('Error saving message: ' + response.message, 'error');
-                    }
+                    showMessage(response, 'success');
+                    loadRequests();
                 })
                 .withFailureHandler(function(error) {
                     document.getElementById('loading').style.display = 'none';
                     showMessage('Error: ' + error.message, 'error');
                 })
-                .updatePocMessage(id, message);
+                .updateStatus(id, email, status, message);
         }
 
         function applyBulkActions() {
@@ -644,8 +630,11 @@
             }
 
             var ids = [];
+            var emails = [];
             checkboxes.forEach(function(cb) {
                 ids.push(cb.getAttribute('data-id'));
+                // Note: The bulk update function in backend doesn't need individual emails,
+                // but it's good practice to have them if needed.
             });
 
             var message = prompt("Enter a message for all selected students (optional):");
@@ -694,7 +683,7 @@
         function showMessage(message, type) {
             var messageEl = document.getElementById("message");
             messageEl.innerHTML = message;
-            messageEl.className = type === 'error' ? "error" : "success";
+            messageEl.className = type; // Directly use 'success' or 'error'
             messageEl.style.display = "block";
 
             setTimeout(function() {
