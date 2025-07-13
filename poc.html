@@ -413,14 +413,21 @@
         }
         
         function displayRequests(data) {
-            if (data.length === 0) {
+            if (!Array.isArray(data)) {
+                document.getElementById("requests").innerHTML = "<div class='no-data'>Invalid data received from server.</div>";
+                return;
+            }
+            // Skip header row if present
+            var rows = data;
+            if (rows.length > 0 && typeof rows[0][0] === 'string' && rows[0][0].toLowerCase().indexOf('date') !== -1) {
+                rows = rows.slice(1);
+            }
+            if (rows.length === 0) {
                 document.getElementById("requests").innerHTML = "<div class='no-data'>No matching requests found.</div>";
                 return;
             }
-            
             var tableHtml = "<div class='table-container'><table><thead><tr><th>Date</th><th>ID</th><th>Name</th><th>Email</th><th>POC</th><th>POC Mail ID</th><th>Status</th><th>Message</th><th>Action</th></tr></thead><tbody>";
-            
-            data.forEach(function(row) {
+            rows.forEach(function(row) {
                 // SCHEMA: [Date, ID, Name, Email, POC, POC Mail ID, Status, Message]
                 var formattedDate = "N/A";
                 if (row[0] && !isNaN(new Date(row[0]).getTime())) {
@@ -445,10 +452,10 @@
                         "<option value='Rejected'" + ((row[6]||'Pending') === "Rejected" ? " selected" : "") + ">Rejected</option>" +
                     "</select>" +
                     "<button class='btn-update' onclick=\"handleUpdateRequestStatus('" + String(row[1]).replace(/'/g, "\\'") + "', '" + String(row[3]).replace(/'/g, "\\'") + "')\">Update</button>" +
+                    "<button class='btn-update' style='background:#fbbc05;color:#343a40;' onclick=\"handlePush('" + String(row[1]).replace(/'/g, "\\'") + "', '" + String(row[3]).replace(/'/g, "\\'") + "')\">Push</button>" +
                 "</td>";
                 tableHtml += "</tr>";
             });
-            
             tableHtml += "</tbody></table></div>";
             document.getElementById("requests").innerHTML = tableHtml;
         }
@@ -620,6 +627,10 @@
             document.getElementById('pocMessageModal').style.display = 'none';
         }
         function sendPocMessage() {
+        function handlePush(id, email) {
+            alert('Push triggered for ID: ' + id + ', Email: ' + email);
+            // Add your push logic here
+        }
             var message = document.getElementById('pocMessageText').value;
             if (!message.trim()) {
                 alert('Message cannot be empty.');
