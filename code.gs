@@ -186,14 +186,14 @@ function verifyAndSubmit(email, otp, fullName, rollNumber, pocName, studentMessa
     var timestamp = new Date();
     // SCHEMA: Pending -> [Date, ID, Name, Email, POC, POC Mail ID, Status, Message]
     var newRequest = [
-      timestamp,
-      rollNumber,
-      fullName,
-      email,
-      pocName,
-      pocEmail,
-      "Pending",
-      studentMessage || "" // Student's message
+      timestamp,         // A: Date of Request
+      rollNumber,        // B: ID
+      fullName,          // C: Name
+      email,             // D: Email
+      pocName,           // E: POC
+      pocEmail,          // F: POC Mail ID
+      "Pending",        // G: Status
+      studentMessage || "" // H: Message (student's message)
     ];
     pendingSheet.appendRow(newRequest);
 
