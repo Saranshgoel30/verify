@@ -14,7 +14,11 @@ function batchUpdateStatus(updates) {
     var message = update.message || "";
     var rowFound = false;
     for (var i = 1; i < pendingData.length; i++) {
-      if (pendingData[i][1] == id && pendingData[i][3] == email) {
+      var rowId = String(pendingData[i][1]).trim().toLowerCase();
+      var rowEmail = String(pendingData[i][3]).trim().toLowerCase();
+      var matchId = String(id).trim().toLowerCase();
+      var matchEmail = String(email).trim().toLowerCase();
+      if (rowId === matchId && rowEmail === matchEmail) {
         var rowData = pendingData[i].slice();
         var studentName = rowData[2];
         var studentEmail = rowData[3];

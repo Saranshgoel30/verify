@@ -399,7 +399,7 @@
             }
             // Track changes for batch update
             if (!window.batchUpdates) window.batchUpdates = {};
-            var tableHtml = "<div class='table-container'><table><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>POC</th><th>Date Requested</th><th>Status</th><th>Message</th><th></th></tr></thead><tbody>";
+            var tableHtml = "<div class='table-container'><table><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>POC</th><th>Date Requested</th><th>Status</th><th></th></tr></thead><tbody>";
             data.forEach(function(row) {
                 var formattedDate = "N/A";
                 if (row[0] && !isNaN(new Date(row[0]).getTime())) {
@@ -409,7 +409,8 @@
                 var currentStatus = row[6] || "Pending";
                 var id = row[1];
                 var email = row[3];
-                var msgValue = (window.batchUpdates[id] && window.batchUpdates[id].message !== undefined) ? window.batchUpdates[id].message : (row[7] || "");
+            var compositeKey = id + "|" + email;
+            var msgValue = (window.batchUpdates[compositeKey] && window.batchUpdates[compositeKey].message !== undefined) ? window.batchUpdates[compositeKey].message : (row[7] || "");
                 tableHtml += "<tr>";
                 tableHtml += "<td><strong>" + (id || 'N/A') + "</strong></td>";
                 tableHtml += "<td>" + (row[2] || 'N/A') + "</td>";
@@ -425,42 +426,50 @@
                     "<option value='Pending'" + (currentStatus === "Pending" ? " selected" : "") + ">Pending</option>" +
                     "<option value='Approved'" + (currentStatus === "Approved" ? " selected" : "") + ">Approved</option>" +
                     "<option value='Rejected'" + (currentStatus === "Rejected" ? " selected" : "") + ">Rejected</option>" +
-                    "</select></td>";
-                tableHtml += "<td>" +
-                    "<input type='text' id='msg-" + id + "' value='" + (msgValue || "") + "' placeholder='Add message' style='width:140px;display:none;' onchange='onMsgChange(" + JSON.stringify(id) + ")' " +
-                    ((currentStatus === "Approved" || currentStatus === "Rejected") ? "" : "disabled") + ">" +
-                    "</td>";
-                tableHtml += "<td>" +
-                    (row[7] && row[7].trim() ? ("<button class='poc-action-btn' onclick='showStudentMsgModal(" + JSON.stringify(row[7]) + ")'>Show Student Message</button>") : "") +
-                    "</td>";
-        // Uniform PoC action button style and row
-        var style = document.createElement('style');
-        style.innerHTML = `
-        .poc-btn-row {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 6px;
-        }
-        .poc-action-btn {
-          background: #1a237e;
-          color: #fff;
-          border: none;
-          border-radius: 6px;
-          padding: 7px 10px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background 0.2s;
-          flex: 1 1 0;
-          min-width: 0;
-        }
-        .poc-action-btn:hover {
-          background: #283593;
-        }
-        `;
-        document.head.appendChild(style);
+                    "</select>" +
+                "</td>";
+                // No message input column
+                tableHtml += "<td></td>";
                 tableHtml += "</tr>";
-        // Unified Modal for Add/Show Message
+            });
+            tableHtml += "</tbody></table></div>";
+            tableHtml += "<div style='text-align:right; margin-top:10px;'><button class='btn-update' onclick='updateAllRequests()'>Update All</button></div>";
+            document.getElementById("requests").innerHTML = tableHtml;
+        }
+
+        // Uniform PoC action button style and row (inject only once)
+        (function injectPocBtnStyle() {
+            if (!document.getElementById('poc-btn-style')) {
+                var style = document.createElement('style');
+                style.id = 'poc-btn-style';
+                style.innerHTML = `
+                .poc-btn-row {
+                  display: flex;
+                  gap: 8px;
+                  margin-bottom: 6px;
+                }
+                .poc-action-btn {
+                  background: #1a237e;
+                  color: #fff;
+                  border: none;
+                  border-radius: 6px;
+                  padding: 7px 10px;
+                  font-size: 13px;
+                  font-weight: 600;
+                  cursor: pointer;
+                  transition: background 0.2s;
+                  flex: 1 1 0;
+                  min-width: 0;
+                }
+                .poc-action-btn:hover {
+                  background: #283593;
+                }
+                `;
+                document.head.appendChild(style);
+            }
+        })();
+
+        // Global modal function for Add/Show Message
         function openMsgModal(id, email, showOnly, msg) {
             var modal = document.createElement('div');
             modal.style.position = 'fixed';
@@ -484,8 +493,12 @@
                     "<div style='white-space:pre-line;color:#222;font-size:15px;margin-bottom:18px;'>" + (msg ? msg : '<i>No message provided.</i>') + "</div>" +
                     "<div style='text-align:right;'><button id='modalMsgClose' style='background:#eee;color:#222;border:none;padding:6px 16px;border-radius:6px;'>Close</button></div>";
             } else {
+                var compositeKey = id + "|" + email;
+                var initialMsg = (window.batchUpdates && window.batchUpdates[compositeKey] && window.batchUpdates[compositeKey].message !== undefined)
+                    ? window.batchUpdates[compositeKey].message
+                    : "";
                 box.innerHTML = "<h3 style='margin-bottom:10px;font-size:1.1rem;color:#1a237e;'>Add Message</h3>" +
-                    "<textarea id='modalMsgInput' style='width:100%;min-height:60px;border-radius:7px;padding:8px 10px;border:1.2px solid #dbeafe;'></textarea>" +
+                    "<textarea id='modalMsgInput' style='width:100%;min-height:60px;border-radius:7px;padding:8px 10px;border:1.2px solid #dbeafe;'>" + initialMsg.replace(/</g, '&lt;').replace(/>/g, '&gt;') + "</textarea>" +
                     "<div style='margin-top:14px;text-align:right;'><button id='modalMsgCancel' style='margin-right:8px;background:#eee;color:#222;border:none;padding:6px 16px;border-radius:6px;'>Cancel</button><button id='modalMsgSave' class='btn-update' style='padding:6px 16px;'>Save</button></div>";
             }
             modal.appendChild(box);
@@ -500,16 +513,23 @@
                 };
                 document.getElementById('modalMsgSave').onclick = function() {
                     var val = document.getElementById('modalMsgInput').value;
-                    document.getElementById('msg-' + id).value = val;
-                    onMsgChange(id);
-                    document.body.removeChild(modal);
+                    if (!window.batchUpdates) window.batchUpdates = {};
+                    var compositeKey = id + "|" + email;
+                    if (!window.batchUpdates[compositeKey]) window.batchUpdates[compositeKey] = {id: id, email: email};
+                    window.batchUpdates[compositeKey].message = val;
+                    // Visual feedback: show a checkmark
+                    var saveBtn = document.getElementById('modalMsgSave');
+                    saveBtn.innerHTML = 'Saved <span style="color:#34a853;font-size:16px;">&#10003;</span>';
+                    setTimeout(function() {
+                        document.body.removeChild(modal);
+                    }, 700);
                 };
             }
         }
-            });
-            tableHtml += "</tbody></table></div>";
-            tableHtml += "<div style='text-align:right; margin-top:10px;'><button class='btn-update' onclick='updateAllRequests()'>Update All</button></div>";
-            document.getElementById("requests").innerHTML = tableHtml;
+
+        // For legacy support, also define showStudentMsgModal globally
+        function showStudentMsgModal(msg) {
+            openMsgModal(null, null, true, msg);
         }
         
         function loadRequests() {
@@ -586,16 +606,18 @@
         // Batch update all changed requests
         function updateAllRequests() {
             var updates = [];
-            for (var id in window.batchUpdates) {
-                if (!window.batchUpdates.hasOwnProperty(id)) continue;
-                var update = window.batchUpdates[id];
+            for (var key in window.batchUpdates) {
+                if (!window.batchUpdates.hasOwnProperty(key)) continue;
+                var update = window.batchUpdates[key];
                 if (update.status !== undefined && update.status !== null && update.status !== "Pending") {
-                    // For rejected, message is required
                     if (update.status === "Rejected" && (!update.message || !update.message.trim())) {
-                        alert("Rejection reason cannot be empty for ID: " + id);
+                        alert("Rejection reason cannot be empty for ID: " + update.id);
                         return;
                     }
-                    updates.push({id: id, email: update.email, status: update.status, message: update.message});
+                    updates.push({id: update.id, email: update.email, status: update.status, message: update.message});
+                } else if (update.message !== undefined && update.message !== null && update.message.trim() !== "") {
+                    // Allow message-only update
+                    updates.push({id: update.id, email: update.email, status: update.status || "Pending", message: update.message});
                 }
             }
             if (updates.length === 0) {
@@ -624,8 +646,9 @@
         function onStatusChange(id, email) {
             var status = document.getElementById('status-' + id).value;
             if (!window.batchUpdates) window.batchUpdates = {};
-            if (!window.batchUpdates[id]) window.batchUpdates[id] = {id: id, email: email};
-            window.batchUpdates[id].status = status;
+            var compositeKey = id + "|" + email;
+            if (!window.batchUpdates[compositeKey]) window.batchUpdates[compositeKey] = {id: id, email: email};
+            window.batchUpdates[compositeKey].status = status;
             // Enable/disable message input
             var msgInput = document.getElementById('msg-' + id);
             if (status === "Approved" || status === "Rejected") {
