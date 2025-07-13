@@ -1,0 +1,66 @@
+<div class="filters-row">
+    <div class="filter-group">
+        <label class="filter-label" for="pocFilter">Filter by POC</label>
+        <select id="pocFilter" class="filter-select">
+            <option value="">All POCs</option>
+            <!-- Will be populated dynamically -->
+        </select>
+    </div>
+    <div class="filter-group" style="display: flex; align-items: flex-end;">
+        <button id="applyFilters" class="btn-update" style="margin-right: 10px;">
+            Apply Filters
+        </button>
+        <button id="clearFilters" class="clear-filters">
+            Clear Filters
+        </button>
+    </div>
+</div>
+
+<script>
+    function extractPocNames(data) {
+        const pocs = new Set();
+        data.forEach(row => {
+            if (row[4]) {
+                pocs.add(row[4]);
+            }
+        });
+        return Array.from(pocs).sort();
+    }
+    
+    function populatePocFilter(pocs) {
+        const filterSelect = document.getElementById("pocFilter");
+        filterSelect.innerHTML = '<option value="">All POCs</option>';
+        
+        pocs.forEach(poc => {
+            const option = document.createElement('option');
+            option.value = poc;
+            option.textContent = poc;
+            filterSelect.appendChild(option);
+        });
+    }
+    
+    function applyFilters() {
+        const pocFilter = document.getElementById("pocFilter").value;
+        
+        logDebug("Applying filters", { poc: pocFilter });
+        
+        let filteredData = [...allRequests];
+        
+        // Apply PoC filter
+        if (pocFilter) {
+            filteredData = filteredData.filter(row => row[4] === pocFilter);
+        }
+        
+        displayRequests(filteredData);
+        updateStats(filteredData);
+    }
+    
+    function clearFilters() {
+        document.getElementById("pocFilter").value = "";
+        
+        displayRequests(allRequests);
+        updateStats(allRequests);
+        
+        logDebug("Filters cleared");
+    }
+</script>
