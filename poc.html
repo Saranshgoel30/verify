@@ -497,10 +497,21 @@
                 var initialMsg = (window.batchUpdates && window.batchUpdates[compositeKey] && window.batchUpdates[compositeKey].message !== undefined)
                     ? window.batchUpdates[compositeKey].message
                     : "";
+                // Get current status for this request
+                var status = "Pending";
+                var statusSelect = document.getElementById('status-' + id);
+                if (statusSelect) status = statusSelect.value;
+                var warning = "";
+                if (status === "Pending") {
+                    warning = "<div style='color:#ea4335;font-size:13px;margin-bottom:8px;'>You can only add a message when approving or rejecting a request.</div>";
+                }
                 box.innerHTML = "<h3 style='margin-bottom:10px;font-size:1.1rem;color:#1a237e;'>Add Message</h3>" +
-                    "<textarea id='modalMsgInput' style='width:100%;min-height:60px;border-radius:7px;padding:8px 10px;border:1.2px solid #dbeafe;'>" + initialMsg.replace(/</g, '&lt;').replace(/>/g, '&gt;') + "</textarea>" +
-                    "<div style='margin-top:14px;text-align:right;'><button id='modalMsgCancel' style='margin-right:8px;background:#eee;color:#222;border:none;padding:6px 16px;border-radius:6px;'>Cancel</button><button id='modalMsgSave' class='btn-update' style='padding:6px 16px;'>Save</button></div>";
+                    warning +
+                    "<textarea id='modalMsgInput' style='width:100%;min-height:60px;border-radius:7px;padding:8px 10px;border:1.2px solid #dbeafe;'" + (status === "Pending" ? " disabled" : "") + ">" + initialMsg.replace(/</g, '&lt;').replace(/>/g, '&gt;') + "</textarea>" +
+                    "<div style='margin-top:14px;text-align:right;'><button id='modalMsgCancel' style='margin-right:8px;background:#eee;color:#222;border:none;padding:6px 16px;border-radius:6px;'>Cancel</button>" +
+                    (status === "Pending" ? "" : "<button id='modalMsgSave' class='btn-update' style='padding:6px 16px;'>Save</button>") + "</div>";
             }
+            // ...existing code for modal event handlers...
             modal.appendChild(box);
             document.body.appendChild(modal);
             if (showOnly) {
@@ -609,19 +620,17 @@
             for (var key in window.batchUpdates) {
                 if (!window.batchUpdates.hasOwnProperty(key)) continue;
                 var update = window.batchUpdates[key];
-                if (update.status !== undefined && update.status !== null && update.status !== "Pending") {
+                // Only allow updates for Approved or Rejected
+                if (update.status === "Approved" || update.status === "Rejected") {
                     if (update.status === "Rejected" && (!update.message || !update.message.trim())) {
                         alert("Rejection reason cannot be empty for ID: " + update.id);
                         return;
                     }
                     updates.push({id: update.id, email: update.email, status: update.status, message: update.message});
-                } else if (update.message !== undefined && update.message !== null && update.message.trim() !== "") {
-                    // Allow message-only update
-                    updates.push({id: update.id, email: update.email, status: update.status || "Pending", message: update.message});
                 }
             }
             if (updates.length === 0) {
-                alert("No changes to update.");
+                alert("No changes to update. Only requests with status Approved or Rejected will be updated.");
                 return;
             }
             var messageEl = document.getElementById("message");
