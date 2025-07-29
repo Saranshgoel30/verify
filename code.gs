@@ -237,10 +237,14 @@ function submitEmail(email, studentMessage) {
           break;
         }
       }
+      // Calculate deadline (48 hours from now)
+      var requestDate = new Date();
+      var deadline = new Date(requestDate.getTime() + 48 * 60 * 60 * 1000);
+      var deadlineStr = deadline.toLocaleDateString() + " " + deadline.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       sendEmailToStudent(email, studentName, "Request Submitted", 
                         "Your verification request has been submitted successfully. Your Point of Contact (POC) will review your request shortly.");
       sendEmailToPOC(pocEmail, pocName, studentName, email, "New Verification Request", 
-                     "You have received a new verification request from " + studentName + " (" + email + "). Please review and approve or reject this request at your earliest convenience.");
+                     "You have received a new verification request from " + studentName + " (" + email + "). Please review and approve or reject this request at your earliest convenience.\n\nYou have until " + deadlineStr + " to verify the profile.");
       found = true;
       break;
     }

@@ -399,12 +399,22 @@
             }
             // Track changes for batch update
             if (!window.batchUpdates) window.batchUpdates = {};
-            var tableHtml = "<div class='table-container'><table><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>POC</th><th>Date Requested</th><th>Status</th><th></th></tr></thead><tbody>";
+            var tableHtml = "<div class='table-container'><table><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>POC</th><th>Time Remaining</th><th>Status</th><th></th></tr></thead><tbody>";
             data.forEach(function(row) {
-                var formattedDate = "N/A";
+                var timeRemaining = "N/A";
                 if (row[0] && !isNaN(new Date(row[0]).getTime())) {
                     var requestDate = new Date(row[0]);
-                    formattedDate = requestDate.toLocaleDateString() + " " + requestDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    var now = new Date();
+                    var deadline = new Date(requestDate.getTime() + 48 * 60 * 60 * 1000);
+                    var diffMs = deadline - now;
+                    if (diffMs > 0) {
+                        var diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+                        var diffMin = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                        var diffStr = (diffHrs > 0 ? diffHrs + "h " : "") + diffMin + "m";
+                        timeRemaining = diffStr + " left";
+                    } else {
+                        timeRemaining = "Expired";
+                    }
                 }
                 var currentStatus = row[6] || "Pending";
                 var id = row[1];
@@ -416,7 +426,7 @@
                 tableHtml += "<td>" + (row[2] || 'N/A') + "</td>";
                 tableHtml += "<td>" + (email || 'N/A') + "</td>";
                 tableHtml += "<td>" + (row[4] || 'N/A') + "</td>";
-                tableHtml += "<td>" + formattedDate + "</td>";
+                tableHtml += "<td>" + timeRemaining + "</td>";
                 tableHtml += "<td style='min-width:160px;'>" +
                     "<div class='poc-btn-row'>" +
                         "<button class='poc-action-btn' onclick='openMsgModal(" + JSON.stringify(id) + ", " + JSON.stringify(email) + ", false)'>Add Message</button>" +
